@@ -620,12 +620,9 @@ export default function ChatRoomPage({ roomId }: ChatRoomPageProps) {
   }, [putRoomSettingsMutation.isPending]);
 
   const handleBackClick = useCallback(() => {
-    if (typeof window !== 'undefined' && window.history.length > 1) {
-      router.back();
-      return;
-    }
-    router.push('/chat');
-  }, [router]);
+    void queryClient.invalidateQueries({ queryKey: chatKeys.rooms() });
+    router.replace('/chat');
+  }, [queryClient, router]);
 
   const handleSettingsClick = useCallback(() => {
     setIsSettingsOpen(true);
