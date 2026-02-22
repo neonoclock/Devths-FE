@@ -31,7 +31,8 @@ function parseKstDateTime(value: string): Date {
   if (hasTimezone) {
     return new Date(normalized);
   }
-  return new Date(`${normalized}+09:00`);
+  // Backend chat timestamps are currently serialized without timezone info but represent UTC.
+  return new Date(`${normalized}Z`);
 }
 
 function formatRoomTime(isoString: string | null): string {

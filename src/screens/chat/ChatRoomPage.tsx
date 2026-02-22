@@ -82,7 +82,8 @@ function parseKstDateTime(value: string): Date {
     return new Date(normalized);
   }
 
-  return new Date(`${normalized}+09:00`);
+  // Backend chat timestamps are currently serialized without timezone info but represent UTC.
+  return new Date(`${normalized}Z`);
 }
 
 function formatDateKey(value: string): string {
