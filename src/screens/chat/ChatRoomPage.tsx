@@ -361,6 +361,11 @@ export default function ChatRoomPage({ roomId }: ChatRoomPageProps) {
         return;
       }
 
+      queryClient.setQueryData<Record<number, boolean>>(chatKeys.realtimeUnreadRooms(), (prev) => ({
+        ...(prev ?? {}),
+        [notification.roomId]: true,
+      }));
+
       queryClient.setQueryData<number>(chatKeys.realtimeUnread(), (prev) =>
         typeof prev === 'number' ? prev + 1 : 1,
       );
@@ -661,6 +666,17 @@ export default function ChatRoomPage({ roomId }: ChatRoomPageProps) {
     lastPatchedMsgIdRef.current = null;
     setMessageInput('');
   }, [roomId]);
+
+  useEffect(() => {
+    if (roomId === null) {
+      return;
+    }
+
+    queryClient.setQueryData<Record<number, boolean>>(chatKeys.realtimeUnreadRooms(), (prev) => ({
+      ...(prev ?? {}),
+      [roomId]: false,
+    }));
+  }, [queryClient, roomId]);
 
   useEffect(() => {
     setRoomNameInput(data?.roomName ?? '');

@@ -1,6 +1,6 @@
 'use client';
 
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -139,6 +139,11 @@ export default function ChatPlaceholderPage() {
   const { requestNavigation } = useNavigationGuard();
   const [roomProfileImages, setRoomProfileImages] = useState<RoomProfileImageMap>({});
   const handledTargetRouteRef = useRef<string | null>(null);
+  const { data: roomUnreadFlags = {} } = useQuery<Record<number, boolean>>({
+    queryKey: chatKeys.realtimeUnreadRooms(),
+    enabled: false,
+    initialData: {},
+  });
   useChatRealtimeConnection({ enabled: currentUserId !== null });
   const { data, isLoading, isError, refetch, fetchNextPage, hasNextPage, isFetchingNextPage } =
     useChatRoomsInfiniteQuery({
@@ -171,6 +176,11 @@ export default function ChatPlaceholderPage() {
       if (!roomUpdated) {
         void queryClient.invalidateQueries({ queryKey: chatKeys.rooms() });
       }
+
+      queryClient.setQueryData<Record<number, boolean>>(chatKeys.realtimeUnreadRooms(), (prev) => ({
+        ...(prev ?? {}),
+        [notification.roomId]: true,
+      }));
     },
     [queryClient],
   );
@@ -396,7 +406,7 @@ export default function ChatPlaceholderPage() {
             {rooms.map((room) => {
               const previewText = room.lastMessageContent?.trim() || '최근 채팅방 내용이 없습니다.';
               const formattedTime = formatRoomTime(room.lastMessageAt);
-              const showUnreadDot = Boolean(room.lastMessageAt && room.lastMessageContent);
+              const showUnreadDot = Boolean(roomUnreadFlags[room.roomId]);
               const roomProfileImage = roomProfileImages[room.roomId] ?? null;
 
               return (
