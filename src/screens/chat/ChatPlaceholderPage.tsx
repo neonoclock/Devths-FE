@@ -1,10 +1,10 @@
 'use client';
 
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { useHeader } from '@/components/layout/HeaderContext';
 import { useNavigationGuard } from '@/components/layout/NavigationGuardContext';
@@ -12,15 +12,10 @@ import ListLoadMoreSentinel from '@/components/llm/rooms/ListLoadMoreSentinel';
 import { fetchChatMessages } from '@/lib/api/chatMessages';
 import { fetchChatRooms } from '@/lib/api/chatRooms';
 import { getUserIdFromAccessToken } from '@/lib/auth/token';
-import { applyRealtimeRoomNotification } from '@/lib/chat/realtimeRoomCache';
 import { chatKeys } from '@/lib/hooks/chat/queryKeys';
-import { useChatRealtimeConnection } from '@/lib/hooks/chat/useChatRealtimeConnection';
 import { useChatRoomsInfiniteQuery } from '@/lib/hooks/chat/useChatRoomsInfiniteQuery';
-import { useChatSubscriptions } from '@/lib/hooks/chat/useChatSubscriptions';
 
-import type { ChatRoomNotificationResponse } from '@/lib/api/chatMessages';
 import type { ChatRoomListResponse } from '@/lib/api/chatRooms';
-import type { IMessage } from '@stomp/stompjs';
 
 const ROOM_PAGE_SIZE = 10;
 const ROOM_NAME_MAX_LENGTH = 6;
@@ -31,7 +26,8 @@ function parseKstDateTime(value: string): Date {
   if (hasTimezone) {
     return new Date(normalized);
   }
-  return new Date(`${normalized}+09:00`);
+  // Backend chat timestamps are currently serialized without timezone info but represent UTC.
+  return new Date(`${normalized}Z`);
 }
 
 function formatRoomTime(isoString: string | null): string {
@@ -87,14 +83,6 @@ function truncateRoomName(title: string | null): string {
   return `${trimmed.slice(0, ROOM_NAME_MAX_LENGTH)}…`;
 }
 
-function parseStompJson<T>(body: string): T | null {
-  try {
-    return JSON.parse(body) as T;
-  } catch {
-    return null;
-  }
-}
-
 function resolveTimestamp(value: string | null): number | null {
   if (!value) {
     return null;
@@ -139,7 +127,11 @@ export default function ChatPlaceholderPage() {
   const { requestNavigation } = useNavigationGuard();
   const [roomProfileImages, setRoomProfileImages] = useState<RoomProfileImageMap>({});
   const handledTargetRouteRef = useRef<string | null>(null);
-  useChatRealtimeConnection({ enabled: currentUserId !== null });
+  const { data: roomUnreadFlags = {} } = useQuery<Record<number, boolean>>({
+    queryKey: chatKeys.realtimeUnreadRooms(),
+    enabled: false,
+    initialData: {},
+  });
   const { data, isLoading, isError, refetch, fetchNextPage, hasNextPage, isFetchingNextPage } =
     useChatRoomsInfiniteQuery({
       size: ROOM_PAGE_SIZE,
@@ -159,28 +151,6 @@ export default function ChatPlaceholderPage() {
       })
       .sort(compareRoomsByLastMessage);
   }, [data]);
-
-  const handleUserNotification = useCallback(
-    (frame: IMessage) => {
-      const notification = parseStompJson<ChatRoomNotificationResponse>(frame.body);
-      if (!notification || typeof notification.roomId !== 'number') {
-        return;
-      }
-
-      const roomUpdated = applyRealtimeRoomNotification(queryClient, notification);
-      if (!roomUpdated) {
-        void queryClient.invalidateQueries({ queryKey: chatKeys.rooms() });
-      }
-    },
-    [queryClient],
-  );
-
-  useChatSubscriptions({
-    enabled: currentUserId !== null,
-    roomId: null,
-    userId: currentUserId,
-    onUserNotification: handleUserNotification,
-  });
 
   useEffect(() => {
     setOptions({
@@ -396,7 +366,7 @@ export default function ChatPlaceholderPage() {
             {rooms.map((room) => {
               const previewText = room.lastMessageContent?.trim() || '최근 채팅방 내용이 없습니다.';
               const formattedTime = formatRoomTime(room.lastMessageAt);
-              const showUnreadDot = Boolean(room.lastMessageAt && room.lastMessageContent);
+              const showUnreadDot = Boolean(roomUnreadFlags[room.roomId]);
               const roomProfileImage = roomProfileImages[room.roomId] ?? null;
 
               return (
@@ -451,9 +421,9 @@ export default function ChatPlaceholderPage() {
             type="button"
             onClick={() => requestNavigation(() => router.push('/chat/new'))}
             aria-label="채팅방 생성"
-            className="pointer-events-auto inline-flex h-14 w-14 items-center justify-center rounded-full bg-[#0F172A] text-white shadow-lg shadow-black/20 transition hover:bg-[#1E293B]"
+            className="pointer-events-auto inline-flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-b from-[#1CD48A] to-[#05C075] text-white shadow-[0_12px_24px_rgba(5,192,117,0.35)] ring-1 ring-white/60 transition hover:scale-105 hover:from-[#2DE09A] hover:to-[#07B374] active:translate-y-0.5"
           >
-            <Plus className="h-6 w-6" />
+            <Plus className="h-5 w-5" />
           </button>
         </div>
       </div>

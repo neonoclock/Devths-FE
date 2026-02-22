@@ -26,10 +26,27 @@ export function useLeaveChatRoomMutation(roomId: number) {
 
       return result;
     },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: chatKeys.rooms() });
-      await queryClient.invalidateQueries({ queryKey: chatKeys.roomDetail(roomId) });
-      await queryClient.invalidateQueries({ queryKey: chatKeys.all });
+    onSuccess: () => {
+      // 방에서 나간 직후 현재 화면의 상세/메시지 쿼리를 재조회하면 403이 발생할 수 있으므로 제거합니다.
+      queryClient.removeQueries({ queryKey: chatKeys.roomDetail(roomId) });
+      queryClient.removeQueries({
+        predicate: (query) => {
+          const [scope, key, params] = query.queryKey as [
+            unknown,
+            unknown,
+            { roomId?: unknown } | undefined,
+          ];
+          return scope === 'chat' && key === 'messages' && params?.roomId === roomId;
+        },
+      });
+
+      queryClient.setQueryData<Record<number, boolean>>(chatKeys.realtimeUnreadRooms(), (prev) => ({
+        ...(prev ?? {}),
+        [roomId]: false,
+      }));
+
+      void queryClient.invalidateQueries({ queryKey: chatKeys.rooms() });
+      void queryClient.invalidateQueries({ queryKey: chatKeys.realtimeUnread() });
     },
   });
 }

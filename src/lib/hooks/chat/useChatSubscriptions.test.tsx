@@ -92,4 +92,60 @@ describe('useChatSubscriptions', () => {
       expect.any(Function),
     );
   });
+
+  it('콜백 참조가 바뀌어도 destination이 같으면 재구독하지 않는다', () => {
+    const roomUnsubscribe = vi.fn();
+    const userUnsubscribe = vi.fn();
+    subscribeMock.mockReturnValueOnce(roomUnsubscribe).mockReturnValueOnce(userUnsubscribe);
+
+    const firstRoomHandler = vi.fn();
+    const firstUserHandler = vi.fn();
+
+    const { rerender } = renderHook(
+      ({
+        onRoomMessage,
+        onUserNotification,
+      }: {
+        onRoomMessage?: (message: IMessage) => void;
+        onUserNotification?: (message: IMessage) => void;
+      }) =>
+        useChatSubscriptions({
+          enabled: true,
+          roomId: 3,
+          userId: 101,
+          onRoomMessage,
+          onUserNotification,
+        }),
+      {
+        initialProps: {
+          onRoomMessage: firstRoomHandler,
+          onUserNotification: firstUserHandler,
+        },
+      },
+    );
+
+    expect(subscribeMock).toHaveBeenCalledTimes(2);
+
+    const roomCallback = subscribeMock.mock.calls[0][1] as (message: IMessage) => void;
+    const userCallback = subscribeMock.mock.calls[1][1] as (message: IMessage) => void;
+
+    const nextRoomHandler = vi.fn();
+    const nextUserHandler = vi.fn();
+
+    rerender({
+      onRoomMessage: nextRoomHandler,
+      onUserNotification: nextUserHandler,
+    });
+
+    expect(subscribeMock).toHaveBeenCalledTimes(2);
+
+    const fakeFrame = { body: '{"ok":true}' } as IMessage;
+    roomCallback(fakeFrame);
+    userCallback(fakeFrame);
+
+    expect(firstRoomHandler).not.toHaveBeenCalled();
+    expect(firstUserHandler).not.toHaveBeenCalled();
+    expect(nextRoomHandler).toHaveBeenCalledWith(fakeFrame);
+    expect(nextUserHandler).toHaveBeenCalledWith(fakeFrame);
+  });
 });

@@ -27,6 +27,16 @@ export function usePatchLastReadMutation(roomId: number) {
       return result;
     },
     onSuccess: () => {
+      queryClient.setQueryData<Record<number, boolean>>(chatKeys.realtimeUnreadRooms(), (prev) => {
+        if (roomId <= 0) {
+          return prev ?? {};
+        }
+
+        return {
+          ...(prev ?? {}),
+          [roomId]: false,
+        };
+      });
       void queryClient.invalidateQueries({ queryKey: chatKeys.roomDetail(roomId) });
       void queryClient.invalidateQueries({ queryKey: chatKeys.rooms() });
     },

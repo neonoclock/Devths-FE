@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import { chatStompManager } from '@/lib/chat/stompManager';
 
@@ -21,19 +21,24 @@ export function useChatSubscriptions({
   onRoomMessage,
   onUserNotification,
 }: UseChatSubscriptionsParams) {
-  const handleRoomMessage = useCallback(
-    (message: IMessage) => {
-      onRoomMessage?.(message);
-    },
-    [onRoomMessage],
-  );
+  const onRoomMessageRef = useRef(onRoomMessage);
+  const onUserNotificationRef = useRef(onUserNotification);
 
-  const handleUserNotification = useCallback(
-    (message: IMessage) => {
-      onUserNotification?.(message);
-    },
-    [onUserNotification],
-  );
+  useEffect(() => {
+    onRoomMessageRef.current = onRoomMessage;
+  }, [onRoomMessage]);
+
+  useEffect(() => {
+    onUserNotificationRef.current = onUserNotification;
+  }, [onUserNotification]);
+
+  const handleRoomMessage = useCallback((message: IMessage) => {
+    onRoomMessageRef.current?.(message);
+  }, []);
+
+  const handleUserNotification = useCallback((message: IMessage) => {
+    onUserNotificationRef.current?.(message);
+  }, []);
 
   useEffect(() => {
     if (!enabled || roomId === null) {
