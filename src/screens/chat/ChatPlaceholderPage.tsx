@@ -16,6 +16,7 @@ import { chatKeys } from '@/lib/hooks/chat/queryKeys';
 import { useChatRoomsInfiniteQuery } from '@/lib/hooks/chat/useChatRoomsInfiniteQuery';
 
 import type { ChatRoomListResponse } from '@/lib/api/chatRooms';
+import type { RejoinedRoomUiOverrideMap } from '@/lib/chat/rejoinedRoomUiCache';
 
 const ROOM_PAGE_SIZE = 10;
 const ROOM_NAME_MAX_LENGTH = 6;
@@ -129,6 +130,11 @@ export default function ChatPlaceholderPage() {
   const handledTargetRouteRef = useRef<string | null>(null);
   const { data: roomUnreadFlags = {} } = useQuery<Record<number, boolean>>({
     queryKey: chatKeys.realtimeUnreadRooms(),
+    enabled: false,
+    initialData: {},
+  });
+  const { data: rejoinedRoomUiOverrides = {} } = useQuery<RejoinedRoomUiOverrideMap>({
+    queryKey: chatKeys.rejoinedRoomUiOverrides(),
     enabled: false,
     initialData: {},
   });
@@ -376,10 +382,19 @@ export default function ChatPlaceholderPage() {
         {!isLoading && !isError && rooms.length > 0 ? (
           <section className="mt-3 space-y-2">
             {rooms.map((room) => {
-              const previewText = room.lastMessageContent?.trim() || '최근 채팅방 내용이 없습니다.';
-              const formattedTime = formatRoomTime(room.lastMessageAt);
+              const rejoinedUiOverride = rejoinedRoomUiOverrides[room.roomId];
+              const shouldHideLastMessagePreview = Boolean(
+                rejoinedUiOverride?.hideLastMessagePreview,
+              );
+              const previewText = shouldHideLastMessagePreview
+                ? '최근 채팅방 내용이 없습니다.'
+                : room.lastMessageContent?.trim() || '최근 채팅방 내용이 없습니다.';
+              const formattedTime = shouldHideLastMessagePreview
+                ? ''
+                : formatRoomTime(room.lastMessageAt);
               const showUnreadDot = Boolean(roomUnreadFlags[room.roomId]);
-              const roomProfileImage = roomProfileImages[room.roomId] ?? null;
+              const roomProfileImage =
+                rejoinedUiOverride?.profileImage ?? roomProfileImages[room.roomId] ?? null;
 
               return (
                 <button

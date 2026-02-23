@@ -21,6 +21,10 @@ import { fetchMyFollowings } from '@/lib/api/users';
 import { getUserIdFromAccessToken } from '@/lib/auth/token';
 import { applyRealtimeRoomMessage } from '@/lib/chat/realtimeMessageCache';
 import { applyRealtimeRoomNotification } from '@/lib/chat/realtimeRoomCache';
+import {
+  applyRejoinedRoomUiOverride,
+  clearRejoinedRoomUiOverride,
+} from '@/lib/chat/rejoinedRoomUiCache';
 import { chatStompManager } from '@/lib/chat/stompManager';
 import { chatKeys } from '@/lib/hooks/chat/queryKeys';
 import { useChatMessagesInfiniteQuery } from '@/lib/hooks/chat/useChatMessagesInfiniteQuery';
@@ -308,6 +312,7 @@ export default function ChatRoomPage({ roomId }: ChatRoomPageProps) {
         lastMessageContent: resolveLastMessagePreview(incomingMessage),
         lastMessageAt: incomingMessage.createdAt,
       });
+      clearRejoinedRoomUiOverride(queryClient, roomId);
       if (!roomUpdated) {
         void queryClient.invalidateQueries({ queryKey: chatKeys.rooms() });
         void queryClient.refetchQueries({ queryKey: chatKeys.rooms(), type: 'all' });
@@ -507,11 +512,21 @@ export default function ChatRoomPage({ roomId }: ChatRoomPageProps) {
 
       setActiveParticipantUserId(userId);
       try {
+        const targetParticipant =
+          participants.find((participant) => participant.userId === userId) ?? null;
         const result = await createPrivateRoomMutation.mutateAsync({ userId });
         const responseData = result.json && 'data' in result.json ? result.json.data : null;
 
         if (!responseData) {
           throw new Error('Invalid response');
+        }
+
+        if (!responseData.isNew) {
+          applyRejoinedRoomUiOverride(
+            queryClient,
+            responseData.roomId,
+            targetParticipant?.profileImage ?? null,
+          );
         }
 
         setIsParticipantsModalOpen(false);
@@ -524,7 +539,7 @@ export default function ChatRoomPage({ roomId }: ChatRoomPageProps) {
         setActiveParticipantUserId(null);
       }
     },
-    [activeParticipantUserId, createPrivateRoomMutation, router],
+    [activeParticipantUserId, createPrivateRoomMutation, participants, queryClient, router],
   );
 
   const handleOpenParticipantsModal = useCallback(() => {

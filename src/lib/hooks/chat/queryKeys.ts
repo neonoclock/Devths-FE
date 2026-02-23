@@ -53,4 +53,5 @@ export const chatKeys = {
     [...chatKeys.all, 'followings', normalizeFollowingsParams(params)] as const,
   realtimeUnread: () => [...chatKeys.all, 'realtimeUnread'] as const,
   realtimeUnreadRooms: () => [...chatKeys.all, 'realtimeUnreadRooms'] as const,
+  rejoinedRoomUiOverrides: () => [...chatKeys.all, 'rejoinedRoomUiOverrides'] as const,
 };

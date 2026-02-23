@@ -1,5 +1,6 @@
 'use client';
 
+import { useQueryClient } from '@tanstack/react-query';
 import { Check, Search } from 'lucide-react';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -7,6 +8,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } fro
 
 import { useHeader } from '@/components/layout/HeaderContext';
 import ListLoadMoreSentinel from '@/components/llm/rooms/ListLoadMoreSentinel';
+import { applyRejoinedRoomUiOverride } from '@/lib/chat/rejoinedRoomUiCache';
 import { useCreatePrivateRoomMutation } from '@/lib/hooks/chat/useCreatePrivateRoomMutation';
 import { useMyFollowingsInfiniteQuery } from '@/lib/hooks/chat/useMyFollowingsInfiniteQuery';
 import { toast } from '@/lib/toast/store';
@@ -28,6 +30,7 @@ function sortByNickname(a: ChatFollowingSummaryResponse, b: ChatFollowingSummary
 export default function ChatCreatePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const queryClient = useQueryClient();
   const { setOptions, resetOptions } = useHeader();
   const [inputValue, setInputValue] = useState('');
   const [submittedNickname, setSubmittedNickname] = useState<string | undefined>(undefined);
@@ -70,6 +73,14 @@ export default function ChatCreatePage() {
     const hasSelectedUser = followings.some((following) => following.userId === selectedUserId);
     return hasSelectedUser ? selectedUserId : null;
   }, [followings, selectedUserId]);
+
+  const selectedFollowing = useMemo(
+    () =>
+      activeSelectedUserId === null
+        ? null
+        : (followings.find((following) => following.userId === activeSelectedUserId) ?? null),
+    [activeSelectedUserId, followings],
+  );
 
   useEffect(() => {
     if (initializedFromQueryRef.current) {
@@ -187,6 +198,14 @@ export default function ChatCreatePage() {
 
       if (!responseData) {
         throw new Error('Invalid response');
+      }
+
+      if (!responseData.isNew) {
+        applyRejoinedRoomUiOverride(
+          queryClient,
+          responseData.roomId,
+          selectedFollowing?.profileImage ?? null,
+        );
       }
 
       setSuccessModal({
