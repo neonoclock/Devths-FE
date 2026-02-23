@@ -16,6 +16,7 @@ import { chatKeys } from '@/lib/hooks/chat/queryKeys';
 import { useChatRoomsInfiniteQuery } from '@/lib/hooks/chat/useChatRoomsInfiniteQuery';
 
 import type { ChatRoomListResponse } from '@/lib/api/chatRooms';
+import type { RejoinedRoomUiOverrideMap } from '@/lib/chat/rejoinedRoomUiCache';
 
 const ROOM_PAGE_SIZE = 10;
 const ROOM_NAME_MAX_LENGTH = 6;
@@ -132,6 +133,11 @@ export default function ChatPlaceholderPage() {
     enabled: false,
     initialData: {},
   });
+  const { data: rejoinedRoomUiOverrides = {} } = useQuery<RejoinedRoomUiOverrideMap>({
+    queryKey: chatKeys.rejoinedRoomUiOverrides(),
+    enabled: false,
+    initialData: {},
+  });
   const { data, isLoading, isError, refetch, fetchNextPage, hasNextPage, isFetchingNextPage } =
     useChatRoomsInfiniteQuery({
       size: ROOM_PAGE_SIZE,
@@ -178,7 +184,8 @@ export default function ChatPlaceholderPage() {
     }
 
     const targetNickname = searchParams.get('targetNickname')?.trim() ?? '';
-    const targetKey = `${targetUserId}:${targetNickname}`;
+    const from = searchParams.get('from')?.trim() ?? '';
+    const targetKey = `${targetUserId}:${targetNickname}:${from}`;
     if (handledTargetRouteRef.current === targetKey) {
       return;
     }
@@ -190,6 +197,9 @@ export default function ChatPlaceholderPage() {
       if (!targetNickname) {
         const params = new URLSearchParams();
         params.set('targetUserId', String(targetUserId));
+        if (from) {
+          params.set('from', from);
+        }
         requestNavigation(() => router.push(`/chat/new?${params.toString()}`));
         return;
       }
@@ -231,13 +241,21 @@ export default function ChatPlaceholderPage() {
       }
 
       if (matchedRoomId !== null) {
-        requestNavigation(() => router.push(`/chat/${matchedRoomId}`));
+        const params = new URLSearchParams();
+        if (from) {
+          params.set('from', from);
+        }
+        const suffix = params.toString();
+        requestNavigation(() => router.push(`/chat/${matchedRoomId}${suffix ? `?${suffix}` : ''}`));
         return;
       }
 
       const params = new URLSearchParams();
       params.set('targetUserId', String(targetUserId));
       params.set('targetNickname', normalizedTargetNickname);
+      if (from) {
+        params.set('from', from);
+      }
       requestNavigation(() => router.push(`/chat/new?${params.toString()}`));
     };
 
@@ -364,10 +382,19 @@ export default function ChatPlaceholderPage() {
         {!isLoading && !isError && rooms.length > 0 ? (
           <section className="mt-3 space-y-2">
             {rooms.map((room) => {
-              const previewText = room.lastMessageContent?.trim() || '최근 채팅방 내용이 없습니다.';
-              const formattedTime = formatRoomTime(room.lastMessageAt);
+              const rejoinedUiOverride = rejoinedRoomUiOverrides[room.roomId];
+              const shouldHideLastMessagePreview = Boolean(
+                rejoinedUiOverride?.hideLastMessagePreview,
+              );
+              const previewText = shouldHideLastMessagePreview
+                ? '최근 채팅방 내용이 없습니다.'
+                : room.lastMessageContent?.trim() || '최근 채팅방 내용이 없습니다.';
+              const formattedTime = shouldHideLastMessagePreview
+                ? ''
+                : formatRoomTime(room.lastMessageAt);
               const showUnreadDot = Boolean(roomUnreadFlags[room.roomId]);
-              const roomProfileImage = roomProfileImages[room.roomId] ?? null;
+              const roomProfileImage =
+                rejoinedUiOverride?.profileImage ?? roomProfileImages[room.roomId] ?? null;
 
               return (
                 <button

@@ -2,11 +2,12 @@
 
 import { useQueryClient } from '@tanstack/react-query';
 import clsx from 'clsx';
-import { Menu } from 'lucide-react';
+import { FileImage, FileText, Loader2, Menu, Paperclip, Trash2 } from 'lucide-react';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   useCallback,
+  type ChangeEvent,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -21,6 +22,10 @@ import { fetchMyFollowings } from '@/lib/api/users';
 import { getUserIdFromAccessToken } from '@/lib/auth/token';
 import { applyRealtimeRoomMessage } from '@/lib/chat/realtimeMessageCache';
 import { applyRealtimeRoomNotification } from '@/lib/chat/realtimeRoomCache';
+import {
+  applyRejoinedRoomUiOverride,
+  clearRejoinedRoomUiOverride,
+} from '@/lib/chat/rejoinedRoomUiCache';
 import { chatStompManager } from '@/lib/chat/stompManager';
 import { chatKeys } from '@/lib/hooks/chat/queryKeys';
 import { useChatMessagesInfiniteQuery } from '@/lib/hooks/chat/useChatMessagesInfiniteQuery';
@@ -34,6 +39,7 @@ import { usePutRoomSettingsMutation } from '@/lib/hooks/chat/usePutRoomSettingsM
 import { useFollowUserMutation } from '@/lib/hooks/users/useFollowUserMutation';
 import { useUnfollowUserMutation } from '@/lib/hooks/users/useUnfollowUserMutation';
 import { toast } from '@/lib/toast/store';
+import { uploadFile } from '@/lib/upload/uploadFile';
 
 import type { ChatMessageResponse, SendChatMessagePayload } from '@/lib/api/chatMessages';
 import type { IMessage } from '@stomp/stompjs';
@@ -54,6 +60,29 @@ const TOP_FETCH_THRESHOLD = 80;
 const BOTTOM_CONFIRM_THRESHOLD = 32;
 const DELETE_LONG_PRESS_MS = 2000;
 const MESSAGE_SEND_DESTINATION = '/app/chat/message';
+const MAX_IMAGE_ATTACHMENTS_PER_PICK = 9;
+const MAX_ATTACHMENT_FILE_SIZE_BYTES = 5 * 1024 * 1024;
+const ALLOWED_IMAGE_MIME_TYPES = new Set(['image/jpeg', 'image/jpg', 'image/png', 'image/webp']);
+const ALLOWED_FILE_MIME_TYPES = new Set(['application/pdf']);
+
+function resolveChatAssetUrl(s3KeyOrUrl: string | null): string | null {
+  if (!s3KeyOrUrl) {
+    return null;
+  }
+
+  if (/^https?:\/\//i.test(s3KeyOrUrl)) {
+    return s3KeyOrUrl;
+  }
+
+  const base = process.env.NEXT_PUBLIC_S3_URL?.trim();
+  if (!base) {
+    return null;
+  }
+
+  const normalizedBase = base.endsWith('/') ? base.slice(0, -1) : base;
+  const normalizedKey = s3KeyOrUrl.startsWith('/') ? s3KeyOrUrl.slice(1) : s3KeyOrUrl;
+  return `${normalizedBase}/${normalizedKey}`;
+}
 
 function resolveTitle(roomName: string | null, title: string | null) {
   const trimmedRoomName = roomName?.trim();
@@ -146,6 +175,7 @@ function parseStompJson<T>(body: string): T | null {
 
 export default function ChatRoomPage({ roomId }: ChatRoomPageProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const { setOptions, resetOptions } = useHeader();
   const { data, isLoading, isError, refetch } = useChatRoomDetailQuery(roomId);
@@ -162,8 +192,19 @@ export default function ChatRoomPage({ roomId }: ChatRoomPageProps) {
   const [followStateOverrides, setFollowStateOverrides] = useState<Record<number, boolean>>({});
   const [activeParticipantUserId, setActiveParticipantUserId] = useState<number | null>(null);
   const [isFollowingsLoading, setIsFollowingsLoading] = useState(false);
+  const [isAttachmentUploading, setIsAttachmentUploading] = useState(false);
+  const [isAttachmentPickerOpen, setIsAttachmentPickerOpen] = useState(false);
+  const [attachmentValidationMessage, setAttachmentValidationMessage] = useState<string | null>(
+    null,
+  );
+  const [imagePreview, setImagePreview] = useState<{
+    src: string;
+    alt: string;
+  } | null>(null);
   const hasLoadedFollowingsRef = useRef(false);
   const messageListRef = useRef<HTMLDivElement>(null);
+  const imageAttachmentInputRef = useRef<HTMLInputElement>(null);
+  const fileAttachmentInputRef = useRef<HTMLInputElement>(null);
   const unreadDividerRef = useRef<HTMLDivElement>(null);
   const deleteLongPressTimerRef = useRef<number | null>(null);
   const hasInitialScrollRef = useRef(false);
@@ -307,8 +348,10 @@ export default function ChatRoomPage({ roomId }: ChatRoomPageProps) {
         lastMessageContent: resolveLastMessagePreview(incomingMessage),
         lastMessageAt: incomingMessage.createdAt,
       });
+      clearRejoinedRoomUiOverride(queryClient, roomId);
       if (!roomUpdated) {
         void queryClient.invalidateQueries({ queryKey: chatKeys.rooms() });
+        void queryClient.refetchQueries({ queryKey: chatKeys.rooms(), type: 'all' });
       }
 
       const container = messageListRef.current;
@@ -367,6 +410,126 @@ export default function ChatRoomPage({ roomId }: ChatRoomPageProps) {
       setMessageInput('');
     },
     [messageInput, roomId],
+  );
+
+  const handleAttachmentButtonClick = useCallback(() => {
+    if (isAttachmentUploading) {
+      return;
+    }
+
+    setIsAttachmentPickerOpen(true);
+  }, [isAttachmentUploading]);
+
+  const openAttachmentValidationModal = useCallback((message: string) => {
+    setIsAttachmentPickerOpen(false);
+    setAttachmentValidationMessage(message);
+  }, []);
+
+  const handlePickImageAttachments = useCallback(() => {
+    if (isAttachmentUploading) {
+      return;
+    }
+
+    setIsAttachmentPickerOpen(false);
+    imageAttachmentInputRef.current?.click();
+  }, [isAttachmentUploading]);
+
+  const handlePickFileAttachment = useCallback(() => {
+    if (isAttachmentUploading) {
+      return;
+    }
+
+    setIsAttachmentPickerOpen(false);
+    fileAttachmentInputRef.current?.click();
+  }, [isAttachmentUploading]);
+
+  const handleAttachmentChange = useCallback(
+    async (event: ChangeEvent<HTMLInputElement>) => {
+      const selectedFiles = Array.from(event.target.files ?? []);
+      event.target.value = '';
+
+      if (selectedFiles.length === 0 || roomId === null || isAttachmentUploading) {
+        return;
+      }
+
+      const imageFiles = selectedFiles.filter((file) => ALLOWED_IMAGE_MIME_TYPES.has(file.type));
+      const nonImageFiles = selectedFiles.filter(
+        (file) => !ALLOWED_IMAGE_MIME_TYPES.has(file.type),
+      );
+
+      if (imageFiles.length > 0 && nonImageFiles.length > 0) {
+        openAttachmentValidationModal('이미지와 파일은 동시에 첨부할 수 없습니다.');
+        return;
+      }
+
+      if (imageFiles.length > MAX_IMAGE_ATTACHMENTS_PER_PICK) {
+        openAttachmentValidationModal(
+          `이미지는 한 번에 최대 ${MAX_IMAGE_ATTACHMENTS_PER_PICK}장까지 첨부할 수 있습니다.`,
+        );
+        return;
+      }
+
+      if (nonImageFiles.length > 1) {
+        openAttachmentValidationModal('파일은 한 번에 1개만 첨부할 수 있습니다.');
+        return;
+      }
+
+      for (const file of selectedFiles) {
+        if (file.size > MAX_ATTACHMENT_FILE_SIZE_BYTES) {
+          openAttachmentValidationModal('파일 용량은 5MB 이하만 첨부할 수 있습니다.');
+          return;
+        }
+      }
+
+      if (
+        nonImageFiles.length === 1 &&
+        !ALLOWED_FILE_MIME_TYPES.has(nonImageFiles[0]?.type ?? '')
+      ) {
+        openAttachmentValidationModal('파일 첨부는 PDF 형식만 지원합니다.');
+        return;
+      }
+
+      setIsAttachmentUploading(true);
+
+      try {
+        for (const file of selectedFiles) {
+          const uploaded = await uploadFile({
+            file,
+            category: 'AI_CHAT_ATTACHMENT',
+            refType: 'CHATROOM',
+            refId: roomId,
+          });
+
+          const isImageAttachment = ALLOWED_IMAGE_MIME_TYPES.has(file.type);
+          const payload: SendChatMessagePayload = isImageAttachment
+            ? {
+                roomId,
+                type: 'IMAGE',
+                content: null,
+                s3Key: uploaded.s3Key,
+              }
+            : {
+                roomId,
+                type: 'FILE',
+                // Backend FILE 저장 로직은 content 필드를 사용합니다.
+                content: uploaded.s3Key,
+                s3Key: uploaded.s3Key,
+              };
+
+          const published = chatStompManager.publishJson(MESSAGE_SEND_DESTINATION, payload);
+          if (!published) {
+            toast('첨부 메시지 전송에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+            return;
+          }
+        }
+      } catch (error) {
+        const err = error as Error;
+        toast(err.message || '파일 업로드에 실패했습니다.');
+      } finally {
+        setIsAttachmentUploading(false);
+      }
+    },
+    [isAttachmentUploading, openAttachmentValidationModal, roomId],
   );
 
   useChatSubscriptions({
@@ -505,11 +668,21 @@ export default function ChatRoomPage({ roomId }: ChatRoomPageProps) {
 
       setActiveParticipantUserId(userId);
       try {
+        const targetParticipant =
+          participants.find((participant) => participant.userId === userId) ?? null;
         const result = await createPrivateRoomMutation.mutateAsync({ userId });
         const responseData = result.json && 'data' in result.json ? result.json.data : null;
 
         if (!responseData) {
           throw new Error('Invalid response');
+        }
+
+        if (!responseData.isNew) {
+          applyRejoinedRoomUiOverride(
+            queryClient,
+            responseData.roomId,
+            targetParticipant?.profileImage ?? null,
+          );
         }
 
         setIsParticipantsModalOpen(false);
@@ -522,7 +695,7 @@ export default function ChatRoomPage({ roomId }: ChatRoomPageProps) {
         setActiveParticipantUserId(null);
       }
     },
-    [activeParticipantUserId, createPrivateRoomMutation, router],
+    [activeParticipantUserId, createPrivateRoomMutation, participants, queryClient, router],
   );
 
   const handleOpenParticipantsModal = useCallback(() => {
@@ -578,9 +751,12 @@ export default function ChatRoomPage({ roomId }: ChatRoomPageProps) {
   }, [putRoomSettingsMutation.isPending]);
 
   const handleBackClick = useCallback(() => {
+    const from = searchParams.get('from');
+    const backPath =
+      from === 'notifications' ? '/notifications' : from === 'board' ? '/board' : '/chat';
     void queryClient.invalidateQueries({ queryKey: chatKeys.rooms() });
-    router.replace('/chat');
-  }, [queryClient, router]);
+    router.replace(backPath);
+  }, [queryClient, router, searchParams]);
 
   const handleSettingsClick = useCallback(() => {
     setIsSettingsOpen(true);
@@ -833,11 +1009,19 @@ export default function ChatRoomPage({ roomId }: ChatRoomPageProps) {
                 isLongText && !isExpanded
                   ? `${fullContent.slice(0, LONG_MESSAGE_THRESHOLD)}...`
                   : fullContent;
+              const imageUrl =
+                !message.isDeleted && message.type === 'IMAGE'
+                  ? resolveChatAssetUrl(message.s3Key)
+                  : null;
+              const fileUrl =
+                !message.isDeleted && message.type === 'FILE'
+                  ? resolveChatAssetUrl(message.s3Key ?? message.content)
+                  : null;
 
               return (
                 <div key={message.messageId}>
                   {shouldShowDateSeparator ? (
-                    <div className="sticky top-0 z-10 -mx-3 my-2 flex justify-center bg-neutral-50/95 px-3 py-1 backdrop-blur-[1px]">
+                    <div className="-mx-3 my-2 flex justify-center px-3 py-1">
                       <span className="rounded-full border border-neutral-200 bg-white/95 px-3 py-1 text-[11px] font-medium text-neutral-600">
                         {formatStickyDateLabel(message.createdAt)}
                       </span>
@@ -870,65 +1054,158 @@ export default function ChatRoomPage({ roomId }: ChatRoomPageProps) {
                         </p>
                       ) : null}
 
-                      {message.type === 'SYSTEM' ? (
-                        <div className="mx-auto rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-center text-[11px] text-neutral-600">
-                          {message.isDeleted ? '삭제된 시스템 메시지입니다.' : displayedContent}
-                        </div>
-                      ) : (
-                        <div
-                          className={clsx(
-                            'rounded-2xl border px-3 py-2',
-                            message.isDeleted
-                              ? 'border-neutral-200 bg-neutral-100'
-                              : isMine
-                                ? 'border-[#0F172A] bg-[#0F172A] text-white'
-                                : 'border-neutral-200 bg-white text-neutral-900',
-                          )}
-                          onMouseDown={
-                            canDeleteMessage
-                              ? () => startDeleteLongPress(message.messageId)
-                              : undefined
-                          }
-                          onMouseUp={canDeleteMessage ? clearDeleteLongPressTimer : undefined}
-                          onMouseLeave={canDeleteMessage ? clearDeleteLongPressTimer : undefined}
-                          onTouchStart={
-                            canDeleteMessage
-                              ? () => startDeleteLongPress(message.messageId)
-                              : undefined
-                          }
-                          onTouchEnd={canDeleteMessage ? clearDeleteLongPressTimer : undefined}
-                          onTouchCancel={canDeleteMessage ? clearDeleteLongPressTimer : undefined}
-                          onContextMenu={
-                            canDeleteMessage
-                              ? (event) => {
-                                  event.preventDefault();
-                                }
-                              : undefined
-                          }
-                        >
-                          <p
+                      <div
+                        className={clsx(
+                          'flex items-end',
+                          isMine && canDeleteMessage ? 'justify-end gap-1.5' : 'justify-start',
+                        )}
+                      >
+                        {message.type === 'SYSTEM' ? (
+                          <div className="mx-auto rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-center text-[11px] text-neutral-600">
+                            {message.isDeleted ? '삭제된 시스템 메시지입니다.' : displayedContent}
+                          </div>
+                        ) : message.type === 'IMAGE' && !message.isDeleted ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (!imageUrl) {
+                                toast('이미지를 불러올 수 없습니다.');
+                                return;
+                              }
+                              setImagePreview({
+                                src: imageUrl,
+                                alt: `${message.sender?.nickname ?? '채팅'} 이미지`,
+                              });
+                            }}
                             className={clsx(
-                              'text-sm break-words whitespace-pre-wrap',
-                              message.isDeleted ? 'text-neutral-400' : '',
+                              'block overflow-hidden rounded-2xl border bg-white',
+                              isMine ? 'border-[#0F172A]' : 'border-neutral-200',
                             )}
                           >
-                            {message.isDeleted ? '삭제된 메시지입니다.' : displayedContent}
-                          </p>
-
-                          {!message.isDeleted && isLongText ? (
-                            <button
-                              type="button"
-                              onClick={() => toggleExpandedMessage(message.messageId)}
+                            {imageUrl ? (
+                              <Image
+                                src={imageUrl}
+                                alt={`${message.sender?.nickname ?? '채팅'} 이미지`}
+                                width={240}
+                                height={240}
+                                className="max-h-[220px] w-auto max-w-[220px] object-cover"
+                                unoptimized
+                              />
+                            ) : (
+                              <div className="flex h-[140px] w-[180px] items-center justify-center bg-neutral-100 text-xs font-medium text-neutral-500">
+                                이미지를 불러올 수 없습니다
+                              </div>
+                            )}
+                          </button>
+                        ) : message.type === 'FILE' && !message.isDeleted ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (!fileUrl) {
+                                toast('파일을 열 수 없습니다.');
+                                return;
+                              }
+                              window.open(fileUrl, '_blank', 'noopener,noreferrer');
+                            }}
+                            className={clsx(
+                              'flex min-w-[180px] items-center gap-2 rounded-2xl border px-3 py-2 text-left',
+                              isMine
+                                ? 'border-[#0F172A] bg-[#0F172A] text-white'
+                                : 'border-neutral-200 bg-white text-neutral-900',
+                            )}
+                          >
+                            <span
                               className={clsx(
-                                'mt-1 text-[11px] font-semibold',
-                                isMine ? 'text-neutral-200' : 'text-neutral-500',
+                                'inline-flex h-8 w-8 items-center justify-center rounded-full',
+                                isMine ? 'bg-white/15' : 'bg-neutral-100',
                               )}
                             >
-                              {isExpanded ? '접기' : '더보기'}
-                            </button>
-                          ) : null}
-                        </div>
-                      )}
+                              <FileText
+                                className={clsx(
+                                  'h-4 w-4',
+                                  isMine ? 'text-white' : 'text-neutral-700',
+                                )}
+                              />
+                            </span>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-semibold">PDF 파일</p>
+                              <p
+                                className={clsx(
+                                  'mt-0.5 text-[11px]',
+                                  isMine ? 'text-neutral-200' : 'text-neutral-500',
+                                )}
+                              >
+                                탭하여 열기
+                              </p>
+                            </div>
+                          </button>
+                        ) : (
+                          <div
+                            className={clsx(
+                              'rounded-2xl border px-3 py-2',
+                              message.isDeleted
+                                ? 'border-neutral-200 bg-neutral-100'
+                                : isMine
+                                  ? 'border-[#0F172A] bg-[#0F172A] text-white'
+                                  : 'border-neutral-200 bg-white text-neutral-900',
+                            )}
+                            onMouseDown={
+                              canDeleteMessage
+                                ? () => startDeleteLongPress(message.messageId)
+                                : undefined
+                            }
+                            onMouseUp={canDeleteMessage ? clearDeleteLongPressTimer : undefined}
+                            onMouseLeave={canDeleteMessage ? clearDeleteLongPressTimer : undefined}
+                            onTouchStart={
+                              canDeleteMessage
+                                ? () => startDeleteLongPress(message.messageId)
+                                : undefined
+                            }
+                            onTouchEnd={canDeleteMessage ? clearDeleteLongPressTimer : undefined}
+                            onTouchCancel={canDeleteMessage ? clearDeleteLongPressTimer : undefined}
+                            onContextMenu={
+                              canDeleteMessage
+                                ? (event) => {
+                                    event.preventDefault();
+                                  }
+                                : undefined
+                            }
+                          >
+                            <p
+                              className={clsx(
+                                'text-sm break-words whitespace-pre-wrap',
+                                message.isDeleted ? 'text-neutral-400' : '',
+                              )}
+                            >
+                              {message.isDeleted ? '삭제된 메시지입니다.' : displayedContent}
+                            </p>
+
+                            {!message.isDeleted && isLongText ? (
+                              <button
+                                type="button"
+                                onClick={() => toggleExpandedMessage(message.messageId)}
+                                className={clsx(
+                                  'mt-1 text-[11px] font-semibold',
+                                  isMine ? 'text-neutral-200' : 'text-neutral-500',
+                                )}
+                              >
+                                {isExpanded ? '접기' : '더보기'}
+                              </button>
+                            ) : null}
+                          </div>
+                        )}
+
+                        {canDeleteMessage ? (
+                          <button
+                            type="button"
+                            onClick={() => setDeleteTargetMessageId(message.messageId)}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-500 transition hover:bg-neutral-50 hover:text-red-500"
+                            aria-label="메시지 삭제"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        ) : null}
+                      </div>
 
                       <p className="mt-1 px-1 text-right text-[11px] text-neutral-400">
                         {formatMessageTime(message.createdAt)}
@@ -947,6 +1224,38 @@ export default function ChatRoomPage({ roomId }: ChatRoomPageProps) {
         className="mt-2 flex items-center gap-2 rounded-2xl border border-neutral-200 bg-white px-3 py-2"
       >
         <input
+          ref={imageAttachmentInputRef}
+          type="file"
+          className="hidden"
+          multiple
+          accept="image/jpeg,image/jpg,image/png,image/webp"
+          onChange={(event) => {
+            void handleAttachmentChange(event);
+          }}
+        />
+        <input
+          ref={fileAttachmentInputRef}
+          type="file"
+          className="hidden"
+          accept="application/pdf"
+          onChange={(event) => {
+            void handleAttachmentChange(event);
+          }}
+        />
+        <button
+          type="button"
+          onClick={handleAttachmentButtonClick}
+          disabled={isAttachmentUploading}
+          className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-neutral-500 transition hover:bg-neutral-100 hover:text-neutral-700 disabled:cursor-not-allowed disabled:text-neutral-300"
+          aria-label="파일 첨부"
+        >
+          {isAttachmentUploading ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Paperclip className="h-4 w-4" />
+          )}
+        </button>
+        <input
           value={messageInput}
           onChange={(event) => setMessageInput(event.target.value)}
           placeholder="메시지를 입력하세요."
@@ -956,12 +1265,108 @@ export default function ChatRoomPage({ roomId }: ChatRoomPageProps) {
         />
         <button
           type="submit"
-          disabled={!messageInput.trim()}
+          disabled={!messageInput.trim() || isAttachmentUploading}
           className="rounded-lg bg-[#0F172A] px-3 py-2 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:bg-neutral-300"
         >
           전송
         </button>
       </form>
+
+      {imagePreview ? (
+        <div className="fixed inset-0 z-[220] flex items-center justify-center bg-black/80 p-4">
+          <button
+            type="button"
+            aria-label="이미지 닫기"
+            onClick={() => setImagePreview(null)}
+            className="absolute inset-0"
+          />
+          <div className="relative z-10 flex max-h-full max-w-full items-center justify-center">
+            <Image
+              src={imagePreview.src}
+              alt={imagePreview.alt}
+              width={1280}
+              height={1280}
+              className="max-h-[85vh] w-auto max-w-[92vw] rounded-xl object-contain"
+              unoptimized
+            />
+            <button
+              type="button"
+              onClick={() => setImagePreview(null)}
+              className="absolute top-2 right-2 rounded-full bg-black/60 px-2.5 py-1 text-xs font-semibold text-white"
+            >
+              닫기
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {isAttachmentPickerOpen ? (
+        <div className="fixed inset-0 z-[175] flex items-end justify-center">
+          <button
+            type="button"
+            aria-label="첨부 모달 닫기"
+            onClick={() => setIsAttachmentPickerOpen(false)}
+            className="absolute inset-0 bg-black/45"
+          />
+          <section className="relative z-10 w-full max-w-[430px] rounded-t-2xl bg-white p-4 shadow-2xl">
+            <h2 className="text-base font-semibold text-neutral-900">파일/이미지 첨부</h2>
+            <p className="mt-1 text-xs text-neutral-500">
+              이미지 최대 9장(5MB 이하, JPG/JPEG/PNG/WEBP), 파일 1개(PDF, 5MB 이하)
+            </p>
+
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={handlePickImageAttachments}
+                disabled={isAttachmentUploading}
+                className="flex items-center justify-center gap-2 rounded-lg border border-neutral-200 bg-white px-3 py-3 text-sm font-semibold text-neutral-800 hover:bg-neutral-50 disabled:opacity-60"
+              >
+                <FileImage className="h-4 w-4" />
+                이미지 첨부
+              </button>
+              <button
+                type="button"
+                onClick={handlePickFileAttachment}
+                disabled={isAttachmentUploading}
+                className="flex items-center justify-center gap-2 rounded-lg border border-neutral-200 bg-white px-3 py-3 text-sm font-semibold text-neutral-800 hover:bg-neutral-50 disabled:opacity-60"
+              >
+                <FileText className="h-4 w-4" />
+                파일 첨부
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIsAttachmentPickerOpen(false)}
+              className="mt-3 w-full rounded-lg bg-neutral-900 px-3 py-2.5 text-sm font-semibold text-white"
+            >
+              닫기
+            </button>
+          </section>
+        </div>
+      ) : null}
+
+      {attachmentValidationMessage ? (
+        <div className="fixed inset-0 z-[205] flex items-center justify-center px-4">
+          <button
+            type="button"
+            aria-label="유효성 검사 모달 닫기"
+            onClick={() => setAttachmentValidationMessage(null)}
+            className="absolute inset-0 bg-black/50"
+          />
+          <section className="relative z-10 w-full max-w-[360px] rounded-2xl bg-white p-5 shadow-2xl">
+            <h3 className="text-base font-semibold text-neutral-900">유효성 검사 실패</h3>
+            <p className="mt-2 text-sm leading-6 text-neutral-600">{attachmentValidationMessage}</p>
+            <button
+              type="button"
+              onClick={() => setAttachmentValidationMessage(null)}
+              className="mt-5 w-full rounded-full bg-neutral-900 px-4 py-2.5 text-sm font-semibold text-white"
+            >
+              확인
+            </button>
+          </section>
+        </div>
+      ) : null}
 
       {isSettingsOpen ? (
         <div className="fixed inset-0 z-[180] flex items-end justify-center">
@@ -1009,6 +1414,59 @@ export default function ChatRoomPage({ roomId }: ChatRoomPageProps) {
                   className="h-10 w-full rounded-lg border border-neutral-200 px-3 text-sm text-neutral-900 placeholder:text-neutral-400 disabled:bg-neutral-100 disabled:text-neutral-400"
                 />
               </div>
+            </div>
+
+            <div className="mt-3 rounded-xl border border-neutral-200 p-3">
+              <p className="text-sm font-semibold text-neutral-900">최근 사진/파일 미리보기</p>
+              <p className="mt-1 text-xs text-neutral-500">최근 공유된 이미지 최대 4장</p>
+
+              {data?.recentImages?.length ? (
+                <ul className="mt-3 grid grid-cols-4 gap-2">
+                  {data.recentImages.map((recentImage) => {
+                    const imageSrc = resolveChatAssetUrl(recentImage.s3Key);
+
+                    if (!imageSrc) {
+                      return (
+                        <li
+                          key={recentImage.attachmentId}
+                          className="flex aspect-square items-center justify-center rounded-lg border border-neutral-200 bg-neutral-50 px-1 text-center text-[10px] leading-4 text-neutral-400"
+                        >
+                          미리보기 불가
+                        </li>
+                      );
+                    }
+
+                    return (
+                      <li key={recentImage.attachmentId}>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setImagePreview({
+                              src: imageSrc,
+                              alt: recentImage.originalName || '최근 이미지 미리보기',
+                            })
+                          }
+                          className="block w-full overflow-hidden rounded-lg border border-neutral-200"
+                          aria-label={`${recentImage.originalName || '최근 이미지'} 확대 보기`}
+                        >
+                          <Image
+                            src={imageSrc}
+                            alt={recentImage.originalName || '최근 이미지'}
+                            width={120}
+                            height={120}
+                            className="aspect-square h-auto w-full object-cover"
+                            unoptimized
+                          />
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : (
+                <p className="mt-3 rounded-lg bg-neutral-50 px-3 py-3 text-xs text-neutral-500">
+                  아직 공유된 이미지가 없습니다.
+                </p>
+              )}
             </div>
 
             <div className="mt-3 grid grid-cols-2 gap-2">

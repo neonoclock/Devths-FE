@@ -13,6 +13,7 @@ import LlmAnalysisTaskWatcher from '@/components/llm/analysis/LlmAnalysisTaskWat
 import { ensureAccessToken } from '@/lib/api/client';
 import { getAccessToken, getUserIdFromAccessToken, setAuthRedirect } from '@/lib/auth/token';
 import { applyRealtimeRoomNotification } from '@/lib/chat/realtimeRoomCache';
+import { clearRejoinedRoomUiOverride } from '@/lib/chat/rejoinedRoomUiCache';
 import { chatKeys } from '@/lib/hooks/chat/queryKeys';
 import { useChatRealtimeConnection } from '@/lib/hooks/chat/useChatRealtimeConnection';
 import { useChatSubscriptions } from '@/lib/hooks/chat/useChatSubscriptions';
@@ -97,8 +98,10 @@ export default function AppFrame({
       }
 
       const roomUpdated = applyRealtimeRoomNotification(queryClient, notification);
+      clearRejoinedRoomUiOverride(queryClient, notification.roomId);
       if (!roomUpdated) {
         void queryClient.invalidateQueries({ queryKey: chatKeys.rooms() });
+        void queryClient.refetchQueries({ queryKey: chatKeys.rooms(), type: 'all' });
       }
 
       if (currentChatRoomId !== null && notification.roomId === currentChatRoomId) {

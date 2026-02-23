@@ -189,6 +189,7 @@ export default function NotificationsPage() {
 
     const params = new URLSearchParams();
     params.set('targetUserId', String(modalUser.userId));
+    params.set('from', 'notifications');
     router.push(`/chat?${params.toString()}`);
   };
 

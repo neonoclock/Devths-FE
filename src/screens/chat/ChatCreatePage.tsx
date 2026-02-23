@@ -1,5 +1,6 @@
 'use client';
 
+import { useQueryClient } from '@tanstack/react-query';
 import { Check, Search } from 'lucide-react';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -7,6 +8,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } fro
 
 import { useHeader } from '@/components/layout/HeaderContext';
 import ListLoadMoreSentinel from '@/components/llm/rooms/ListLoadMoreSentinel';
+import { applyRejoinedRoomUiOverride } from '@/lib/chat/rejoinedRoomUiCache';
 import { useCreatePrivateRoomMutation } from '@/lib/hooks/chat/useCreatePrivateRoomMutation';
 import { useMyFollowingsInfiniteQuery } from '@/lib/hooks/chat/useMyFollowingsInfiniteQuery';
 import { toast } from '@/lib/toast/store';
@@ -28,6 +30,7 @@ function sortByNickname(a: ChatFollowingSummaryResponse, b: ChatFollowingSummary
 export default function ChatCreatePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const queryClient = useQueryClient();
   const { setOptions, resetOptions } = useHeader();
   const [inputValue, setInputValue] = useState('');
   const [submittedNickname, setSubmittedNickname] = useState<string | undefined>(undefined);
@@ -38,6 +41,13 @@ export default function ChatCreatePage() {
   } | null>(null);
   const createPrivateRoomMutation = useCreatePrivateRoomMutation();
   const initializedFromQueryRef = useRef(false);
+  const routeSource = searchParams.get('from');
+  const createBackPath =
+    routeSource === 'notifications'
+      ? '/notifications'
+      : routeSource === 'board'
+        ? '/board'
+        : '/chat';
 
   const { data, isLoading, isError, refetch, fetchNextPage, hasNextPage, isFetchingNextPage } =
     useMyFollowingsInfiniteQuery({ submittedNickname });
@@ -63,6 +73,14 @@ export default function ChatCreatePage() {
     const hasSelectedUser = followings.some((following) => following.userId === selectedUserId);
     return hasSelectedUser ? selectedUserId : null;
   }, [followings, selectedUserId]);
+
+  const selectedFollowing = useMemo(
+    () =>
+      activeSelectedUserId === null
+        ? null
+        : (followings.find((following) => following.userId === activeSelectedUserId) ?? null),
+    [activeSelectedUserId, followings],
+  );
 
   useEffect(() => {
     if (initializedFromQueryRef.current) {
@@ -90,16 +108,12 @@ export default function ChatCreatePage() {
       title: '채팅방 생성',
       showBackButton: true,
       onBackClick: () => {
-        if (typeof window !== 'undefined' && window.history.length > 1) {
-          router.back();
-          return;
-        }
-        router.push('/chat');
+        router.replace(createBackPath);
       },
     });
 
     return () => resetOptions();
-  }, [resetOptions, router, setOptions]);
+  }, [createBackPath, resetOptions, router, setOptions]);
 
   useEffect(() => {
     if (!successModal) {
@@ -109,11 +123,16 @@ export default function ChatCreatePage() {
     const timer = window.setTimeout(() => {
       const { roomId } = successModal;
       setSuccessModal(null);
-      router.push(`/chat/${roomId}`);
+      const params = new URLSearchParams();
+      if (routeSource) {
+        params.set('from', routeSource);
+      }
+      const suffix = params.toString();
+      router.push(`/chat/${roomId}${suffix ? `?${suffix}` : ''}`);
     }, 1000);
 
     return () => window.clearTimeout(timer);
-  }, [router, successModal]);
+  }, [routeSource, router, successModal]);
 
   const handleSearch = useCallback(() => {
     const trimmed = inputValue.trim();
@@ -179,6 +198,14 @@ export default function ChatCreatePage() {
 
       if (!responseData) {
         throw new Error('Invalid response');
+      }
+
+      if (!responseData.isNew) {
+        applyRejoinedRoomUiOverride(
+          queryClient,
+          responseData.roomId,
+          selectedFollowing?.profileImage ?? null,
+        );
       }
 
       setSuccessModal({

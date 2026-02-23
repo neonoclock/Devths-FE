@@ -1,7 +1,9 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { type InfiniteData, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { leaveChatRoom } from '@/lib/api/chatRooms';
 import { chatKeys } from '@/lib/hooks/chat/queryKeys';
+
+import type { ChatRoomListResponse } from '@/lib/api/chatRooms';
 
 export function useLeaveChatRoomMutation(roomId: number) {
   const queryClient = useQueryClient();
@@ -39,6 +41,45 @@ export function useLeaveChatRoomMutation(roomId: number) {
           return scope === 'chat' && key === 'messages' && params?.roomId === roomId;
         },
       });
+
+      // 목록 화면은 캐시를 먼저 렌더링하므로, invalidate만 하면 삭제된 방이 잠시 남아 보일 수 있습니다.
+      queryClient.setQueriesData<InfiniteData<ChatRoomListResponse>>(
+        {
+          predicate: (query) =>
+            Array.isArray(query.queryKey) &&
+            query.queryKey[0] === 'chat' &&
+            query.queryKey[1] === 'rooms',
+        },
+        (old) => {
+          if (!old) {
+            return old;
+          }
+
+          let pagesChanged = false;
+
+          const nextPages = old.pages.map((page) => {
+            const nextChatRooms = page.chatRooms.filter((room) => room.roomId !== roomId);
+            if (nextChatRooms.length === page.chatRooms.length) {
+              return page;
+            }
+
+            pagesChanged = true;
+            return {
+              ...page,
+              chatRooms: nextChatRooms,
+            };
+          });
+
+          if (!pagesChanged) {
+            return old;
+          }
+
+          return {
+            ...old,
+            pages: nextPages,
+          };
+        },
+      );
 
       queryClient.setQueryData<Record<number, boolean>>(chatKeys.realtimeUnreadRooms(), (prev) => ({
         ...(prev ?? {}),
