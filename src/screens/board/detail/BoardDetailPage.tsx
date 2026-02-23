@@ -835,6 +835,7 @@ export default function BoardDetailPage() {
           setIsMiniProfileOpen(false);
           const params = new URLSearchParams();
           params.set('targetUserId', String(modalUserId));
+          params.set('from', 'board');
           if (modalUser?.nickname) {
             params.set('targetNickname', modalUser.nickname);
           }

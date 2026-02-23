@@ -178,7 +178,8 @@ export default function ChatPlaceholderPage() {
     }
 
     const targetNickname = searchParams.get('targetNickname')?.trim() ?? '';
-    const targetKey = `${targetUserId}:${targetNickname}`;
+    const from = searchParams.get('from')?.trim() ?? '';
+    const targetKey = `${targetUserId}:${targetNickname}:${from}`;
     if (handledTargetRouteRef.current === targetKey) {
       return;
     }
@@ -190,6 +191,9 @@ export default function ChatPlaceholderPage() {
       if (!targetNickname) {
         const params = new URLSearchParams();
         params.set('targetUserId', String(targetUserId));
+        if (from) {
+          params.set('from', from);
+        }
         requestNavigation(() => router.push(`/chat/new?${params.toString()}`));
         return;
       }
@@ -231,13 +235,21 @@ export default function ChatPlaceholderPage() {
       }
 
       if (matchedRoomId !== null) {
-        requestNavigation(() => router.push(`/chat/${matchedRoomId}`));
+        const params = new URLSearchParams();
+        if (from) {
+          params.set('from', from);
+        }
+        const suffix = params.toString();
+        requestNavigation(() => router.push(`/chat/${matchedRoomId}${suffix ? `?${suffix}` : ''}`));
         return;
       }
 
       const params = new URLSearchParams();
       params.set('targetUserId', String(targetUserId));
       params.set('targetNickname', normalizedTargetNickname);
+      if (from) {
+        params.set('from', from);
+      }
       requestNavigation(() => router.push(`/chat/new?${params.toString()}`));
     };
 

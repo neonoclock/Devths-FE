@@ -38,6 +38,13 @@ export default function ChatCreatePage() {
   } | null>(null);
   const createPrivateRoomMutation = useCreatePrivateRoomMutation();
   const initializedFromQueryRef = useRef(false);
+  const routeSource = searchParams.get('from');
+  const createBackPath =
+    routeSource === 'notifications'
+      ? '/notifications'
+      : routeSource === 'board'
+        ? '/board'
+        : '/chat';
 
   const { data, isLoading, isError, refetch, fetchNextPage, hasNextPage, isFetchingNextPage } =
     useMyFollowingsInfiniteQuery({ submittedNickname });
@@ -90,16 +97,12 @@ export default function ChatCreatePage() {
       title: '채팅방 생성',
       showBackButton: true,
       onBackClick: () => {
-        if (typeof window !== 'undefined' && window.history.length > 1) {
-          router.back();
-          return;
-        }
-        router.push('/chat');
+        router.replace(createBackPath);
       },
     });
 
     return () => resetOptions();
-  }, [resetOptions, router, setOptions]);
+  }, [createBackPath, resetOptions, router, setOptions]);
 
   useEffect(() => {
     if (!successModal) {
@@ -109,11 +112,16 @@ export default function ChatCreatePage() {
     const timer = window.setTimeout(() => {
       const { roomId } = successModal;
       setSuccessModal(null);
-      router.push(`/chat/${roomId}`);
+      const params = new URLSearchParams();
+      if (routeSource) {
+        params.set('from', routeSource);
+      }
+      const suffix = params.toString();
+      router.push(`/chat/${roomId}${suffix ? `?${suffix}` : ''}`);
     }, 1000);
 
     return () => window.clearTimeout(timer);
-  }, [router, successModal]);
+  }, [routeSource, router, successModal]);
 
   const handleSearch = useCallback(() => {
     const trimmed = inputValue.trim();

@@ -4,7 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import clsx from 'clsx';
 import { Menu } from 'lucide-react';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   useCallback,
   useEffect,
@@ -146,6 +146,7 @@ function parseStompJson<T>(body: string): T | null {
 
 export default function ChatRoomPage({ roomId }: ChatRoomPageProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const { setOptions, resetOptions } = useHeader();
   const { data, isLoading, isError, refetch } = useChatRoomDetailQuery(roomId);
@@ -579,9 +580,12 @@ export default function ChatRoomPage({ roomId }: ChatRoomPageProps) {
   }, [putRoomSettingsMutation.isPending]);
 
   const handleBackClick = useCallback(() => {
+    const from = searchParams.get('from');
+    const backPath =
+      from === 'notifications' ? '/notifications' : from === 'board' ? '/board' : '/chat';
     void queryClient.invalidateQueries({ queryKey: chatKeys.rooms() });
-    router.replace('/chat');
-  }, [queryClient, router]);
+    router.replace(backPath);
+  }, [queryClient, router, searchParams]);
 
   const handleSettingsClick = useCallback(() => {
     setIsSettingsOpen(true);
