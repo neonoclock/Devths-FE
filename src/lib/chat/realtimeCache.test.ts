@@ -27,6 +27,7 @@ function makeRoomsData(): InfiniteData<ChatRoomListResponse> {
           {
             roomId: 1,
             title: '테스트 방',
+            profileImage: null,
             lastMessageContent: 'old message',
             lastMessageAt: '2026-02-19T10:00:00',
             currentCount: 2,
