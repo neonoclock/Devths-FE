@@ -838,7 +838,7 @@ export default function ChatRoomPage({ roomId }: ChatRoomPageProps) {
               return (
                 <div key={message.messageId}>
                   {shouldShowDateSeparator ? (
-                    <div className="sticky top-0 z-10 -mx-3 my-2 flex justify-center bg-neutral-50/95 px-3 py-1 backdrop-blur-[1px]">
+                    <div className="-mx-3 my-2 flex justify-center px-3 py-1">
                       <span className="rounded-full border border-neutral-200 bg-white/95 px-3 py-1 text-[11px] font-medium text-neutral-600">
                         {formatStickyDateLabel(message.createdAt)}
                       </span>
