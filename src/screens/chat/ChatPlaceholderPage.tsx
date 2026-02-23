@@ -4,14 +4,12 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 
 import { useHeader } from '@/components/layout/HeaderContext';
 import { useNavigationGuard } from '@/components/layout/NavigationGuardContext';
 import ListLoadMoreSentinel from '@/components/llm/rooms/ListLoadMoreSentinel';
-import { fetchChatMessages } from '@/lib/api/chatMessages';
 import { fetchChatRooms } from '@/lib/api/chatRooms';
-import { getUserIdFromAccessToken } from '@/lib/auth/token';
 import { chatKeys } from '@/lib/hooks/chat/queryKeys';
 import { useChatRoomsInfiniteQuery } from '@/lib/hooks/chat/useChatRoomsInfiniteQuery';
 
@@ -98,7 +96,6 @@ function resolveTimestamp(value: string | null): number | null {
 }
 
 type ChatRoomCard = ChatRoomListResponse['chatRooms'][number];
-type RoomProfileImageMap = Record<number, string | null>;
 
 function compareRoomsByLastMessage(a: ChatRoomCard, b: ChatRoomCard): number {
   const aTimestamp = resolveTimestamp(a.lastMessageAt);
@@ -123,10 +120,8 @@ export default function ChatPlaceholderPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
-  const currentUserId = getUserIdFromAccessToken();
   const { setOptions, resetOptions } = useHeader();
   const { requestNavigation } = useNavigationGuard();
-  const [roomProfileImages, setRoomProfileImages] = useState<RoomProfileImageMap>({});
   const handledTargetRouteRef = useRef<string | null>(null);
   const { data: roomUnreadFlags = {} } = useQuery<Record<number, boolean>>({
     queryKey: chatKeys.realtimeUnreadRooms(),
@@ -270,82 +265,6 @@ export default function ChatPlaceholderPage() {
     };
   }, [requestNavigation, router, searchParams]);
 
-  useEffect(() => {
-    if (currentUserId === null || rooms.length === 0) {
-      return;
-    }
-
-    const missingRoomIds = rooms
-      .map((room) => room.roomId)
-      .filter((roomId) => roomProfileImages[roomId] === undefined);
-
-    if (missingRoomIds.length === 0) {
-      return;
-    }
-
-    let cancelled = false;
-
-    const hydrateRoomProfileImages = async () => {
-      await Promise.all(
-        missingRoomIds.map(async (targetRoomId) => {
-          try {
-            const result = await fetchChatMessages(targetRoomId, { size: 20 });
-            const responseData =
-              result.ok && result.json && 'data' in result.json ? result.json.data : null;
-
-            const messages = responseData?.messages ?? [];
-            const counterpartMessage = [...messages]
-              .reverse()
-              .find(
-                (message) =>
-                  message.sender &&
-                  message.sender.userId !== currentUserId &&
-                  message.sender.profileImage,
-              );
-
-            const profileImage = counterpartMessage?.sender?.profileImage ?? null;
-
-            if (cancelled) {
-              return;
-            }
-
-            setRoomProfileImages((prev) => {
-              if (prev[targetRoomId] !== undefined) {
-                return prev;
-              }
-
-              return {
-                ...prev,
-                [targetRoomId]: profileImage,
-              };
-            });
-          } catch {
-            if (cancelled) {
-              return;
-            }
-
-            setRoomProfileImages((prev) => {
-              if (prev[targetRoomId] !== undefined) {
-                return prev;
-              }
-
-              return {
-                ...prev,
-                [targetRoomId]: null,
-              };
-            });
-          }
-        }),
-      );
-    };
-
-    void hydrateRoomProfileImages();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [currentUserId, roomProfileImages, rooms]);
-
   return (
     <>
       <main className="px-3 pt-4 pb-24">
@@ -398,7 +317,7 @@ export default function ChatPlaceholderPage() {
                 : formatRoomTime(room.lastMessageAt);
               const showUnreadDot = Boolean(roomUnreadFlags[room.roomId]);
               const roomProfileImage =
-                rejoinedUiOverride?.profileImage ?? roomProfileImages[room.roomId] ?? null;
+                rejoinedUiOverride?.profileImage ?? room.profileImage ?? null;
 
               return (
                 <button

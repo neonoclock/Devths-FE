@@ -5,6 +5,7 @@ import type { ChatRoomType, ChatroomsCursor, PatchLastReadBody } from '@/types/c
 type ChatRoomSummaryResponse = Readonly<{
   roomId: number;
   title: string;
+  profileImage: string | null;
   lastMessageContent: string | null;
   lastMessageAt: string | null;
   currentCount: number;
