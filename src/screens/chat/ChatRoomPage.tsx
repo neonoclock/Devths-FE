@@ -2,7 +2,7 @@
 
 import { useQueryClient } from '@tanstack/react-query';
 import clsx from 'clsx';
-import { FileText, Loader2, Menu, Paperclip } from 'lucide-react';
+import { FileImage, FileText, Loader2, Menu, Paperclip } from 'lucide-react';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
@@ -193,13 +193,18 @@ export default function ChatRoomPage({ roomId }: ChatRoomPageProps) {
   const [activeParticipantUserId, setActiveParticipantUserId] = useState<number | null>(null);
   const [isFollowingsLoading, setIsFollowingsLoading] = useState(false);
   const [isAttachmentUploading, setIsAttachmentUploading] = useState(false);
+  const [isAttachmentPickerOpen, setIsAttachmentPickerOpen] = useState(false);
+  const [attachmentValidationMessage, setAttachmentValidationMessage] = useState<string | null>(
+    null,
+  );
   const [imagePreview, setImagePreview] = useState<{
     src: string;
     alt: string;
   } | null>(null);
   const hasLoadedFollowingsRef = useRef(false);
   const messageListRef = useRef<HTMLDivElement>(null);
-  const attachmentInputRef = useRef<HTMLInputElement>(null);
+  const imageAttachmentInputRef = useRef<HTMLInputElement>(null);
+  const fileAttachmentInputRef = useRef<HTMLInputElement>(null);
   const unreadDividerRef = useRef<HTMLDivElement>(null);
   const deleteLongPressTimerRef = useRef<number | null>(null);
   const hasInitialScrollRef = useRef(false);
@@ -412,7 +417,30 @@ export default function ChatRoomPage({ roomId }: ChatRoomPageProps) {
       return;
     }
 
-    attachmentInputRef.current?.click();
+    setIsAttachmentPickerOpen(true);
+  }, [isAttachmentUploading]);
+
+  const openAttachmentValidationModal = useCallback((message: string) => {
+    setIsAttachmentPickerOpen(false);
+    setAttachmentValidationMessage(message);
+  }, []);
+
+  const handlePickImageAttachments = useCallback(() => {
+    if (isAttachmentUploading) {
+      return;
+    }
+
+    setIsAttachmentPickerOpen(false);
+    imageAttachmentInputRef.current?.click();
+  }, [isAttachmentUploading]);
+
+  const handlePickFileAttachment = useCallback(() => {
+    if (isAttachmentUploading) {
+      return;
+    }
+
+    setIsAttachmentPickerOpen(false);
+    fileAttachmentInputRef.current?.click();
   }, [isAttachmentUploading]);
 
   const handleAttachmentChange = useCallback(
@@ -430,23 +458,25 @@ export default function ChatRoomPage({ roomId }: ChatRoomPageProps) {
       );
 
       if (imageFiles.length > 0 && nonImageFiles.length > 0) {
-        toast('이미지와 파일은 동시에 첨부할 수 없습니다.');
+        openAttachmentValidationModal('이미지와 파일은 동시에 첨부할 수 없습니다.');
         return;
       }
 
       if (imageFiles.length > MAX_IMAGE_ATTACHMENTS_PER_PICK) {
-        toast(`이미지는 한 번에 최대 ${MAX_IMAGE_ATTACHMENTS_PER_PICK}장까지 첨부할 수 있습니다.`);
+        openAttachmentValidationModal(
+          `이미지는 한 번에 최대 ${MAX_IMAGE_ATTACHMENTS_PER_PICK}장까지 첨부할 수 있습니다.`,
+        );
         return;
       }
 
       if (nonImageFiles.length > 1) {
-        toast('파일은 한 번에 1개만 첨부할 수 있습니다.');
+        openAttachmentValidationModal('파일은 한 번에 1개만 첨부할 수 있습니다.');
         return;
       }
 
       for (const file of selectedFiles) {
         if (file.size > MAX_ATTACHMENT_FILE_SIZE_BYTES) {
-          toast('파일 용량은 5MB 이하만 첨부할 수 있습니다.');
+          openAttachmentValidationModal('파일 용량은 5MB 이하만 첨부할 수 있습니다.');
           return;
         }
       }
@@ -455,7 +485,7 @@ export default function ChatRoomPage({ roomId }: ChatRoomPageProps) {
         nonImageFiles.length === 1 &&
         !ALLOWED_FILE_MIME_TYPES.has(nonImageFiles[0]?.type ?? '')
       ) {
-        toast('파일 첨부는 PDF 형식만 지원합니다.');
+        openAttachmentValidationModal('파일 첨부는 PDF 형식만 지원합니다.');
         return;
       }
 
@@ -499,7 +529,7 @@ export default function ChatRoomPage({ roomId }: ChatRoomPageProps) {
         setIsAttachmentUploading(false);
       }
     },
-    [isAttachmentUploading, roomId],
+    [isAttachmentUploading, openAttachmentValidationModal, roomId],
   );
 
   useChatSubscriptions({
@@ -1176,11 +1206,20 @@ export default function ChatRoomPage({ roomId }: ChatRoomPageProps) {
         className="mt-2 flex items-center gap-2 rounded-2xl border border-neutral-200 bg-white px-3 py-2"
       >
         <input
-          ref={attachmentInputRef}
+          ref={imageAttachmentInputRef}
           type="file"
           className="hidden"
           multiple
-          accept="image/jpeg,image/jpg,image/png,image/webp,application/pdf"
+          accept="image/jpeg,image/jpg,image/png,image/webp"
+          onChange={(event) => {
+            void handleAttachmentChange(event);
+          }}
+        />
+        <input
+          ref={fileAttachmentInputRef}
+          type="file"
+          className="hidden"
+          accept="application/pdf"
           onChange={(event) => {
             void handleAttachmentChange(event);
           }}
@@ -1240,6 +1279,74 @@ export default function ChatRoomPage({ roomId }: ChatRoomPageProps) {
               닫기
             </button>
           </div>
+        </div>
+      ) : null}
+
+      {isAttachmentPickerOpen ? (
+        <div className="fixed inset-0 z-[175] flex items-end justify-center">
+          <button
+            type="button"
+            aria-label="첨부 모달 닫기"
+            onClick={() => setIsAttachmentPickerOpen(false)}
+            className="absolute inset-0 bg-black/45"
+          />
+          <section className="relative z-10 w-full max-w-[430px] rounded-t-2xl bg-white p-4 shadow-2xl">
+            <h2 className="text-base font-semibold text-neutral-900">파일/이미지 첨부</h2>
+            <p className="mt-1 text-xs text-neutral-500">
+              이미지 최대 9장(5MB 이하, JPG/JPEG/PNG/WEBP), 파일 1개(PDF, 5MB 이하)
+            </p>
+
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={handlePickImageAttachments}
+                disabled={isAttachmentUploading}
+                className="flex items-center justify-center gap-2 rounded-lg border border-neutral-200 bg-white px-3 py-3 text-sm font-semibold text-neutral-800 hover:bg-neutral-50 disabled:opacity-60"
+              >
+                <FileImage className="h-4 w-4" />
+                이미지 첨부
+              </button>
+              <button
+                type="button"
+                onClick={handlePickFileAttachment}
+                disabled={isAttachmentUploading}
+                className="flex items-center justify-center gap-2 rounded-lg border border-neutral-200 bg-white px-3 py-3 text-sm font-semibold text-neutral-800 hover:bg-neutral-50 disabled:opacity-60"
+              >
+                <FileText className="h-4 w-4" />
+                파일 첨부
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIsAttachmentPickerOpen(false)}
+              className="mt-3 w-full rounded-lg bg-neutral-900 px-3 py-2.5 text-sm font-semibold text-white"
+            >
+              닫기
+            </button>
+          </section>
+        </div>
+      ) : null}
+
+      {attachmentValidationMessage ? (
+        <div className="fixed inset-0 z-[205] flex items-center justify-center px-4">
+          <button
+            type="button"
+            aria-label="유효성 검사 모달 닫기"
+            onClick={() => setAttachmentValidationMessage(null)}
+            className="absolute inset-0 bg-black/50"
+          />
+          <section className="relative z-10 w-full max-w-[360px] rounded-2xl bg-white p-5 shadow-2xl">
+            <h3 className="text-base font-semibold text-neutral-900">유효성 검사 실패</h3>
+            <p className="mt-2 text-sm leading-6 text-neutral-600">{attachmentValidationMessage}</p>
+            <button
+              type="button"
+              onClick={() => setAttachmentValidationMessage(null)}
+              className="mt-5 w-full rounded-full bg-neutral-900 px-4 py-2.5 text-sm font-semibold text-white"
+            >
+              확인
+            </button>
+          </section>
         </div>
       ) : null}
 
