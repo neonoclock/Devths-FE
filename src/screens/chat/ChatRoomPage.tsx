@@ -2,7 +2,7 @@
 
 import { useQueryClient } from '@tanstack/react-query';
 import clsx from 'clsx';
-import { Loader2, Menu, Paperclip } from 'lucide-react';
+import { FileText, Loader2, Menu, Paperclip } from 'lucide-react';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
@@ -983,6 +983,10 @@ export default function ChatRoomPage({ roomId }: ChatRoomPageProps) {
                 !message.isDeleted && message.type === 'IMAGE'
                   ? resolveChatAssetUrl(message.s3Key)
                   : null;
+              const fileUrl =
+                !message.isDeleted && message.type === 'FILE'
+                  ? resolveChatAssetUrl(message.s3Key ?? message.content)
+                  : null;
 
               return (
                 <div key={message.messageId}>
@@ -1056,6 +1060,48 @@ export default function ChatRoomPage({ roomId }: ChatRoomPageProps) {
                               이미지를 불러올 수 없습니다
                             </div>
                           )}
+                        </button>
+                      ) : message.type === 'FILE' && !message.isDeleted ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!fileUrl) {
+                              toast('파일을 열 수 없습니다.');
+                              return;
+                            }
+                            window.open(fileUrl, '_blank', 'noopener,noreferrer');
+                          }}
+                          className={clsx(
+                            'flex min-w-[180px] items-center gap-2 rounded-2xl border px-3 py-2 text-left',
+                            isMine
+                              ? 'border-[#0F172A] bg-[#0F172A] text-white'
+                              : 'border-neutral-200 bg-white text-neutral-900',
+                          )}
+                        >
+                          <span
+                            className={clsx(
+                              'inline-flex h-8 w-8 items-center justify-center rounded-full',
+                              isMine ? 'bg-white/15' : 'bg-neutral-100',
+                            )}
+                          >
+                            <FileText
+                              className={clsx(
+                                'h-4 w-4',
+                                isMine ? 'text-white' : 'text-neutral-700',
+                              )}
+                            />
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-semibold">PDF 파일</p>
+                            <p
+                              className={clsx(
+                                'mt-0.5 text-[11px]',
+                                isMine ? 'text-neutral-200' : 'text-neutral-500',
+                              )}
+                            >
+                              탭하여 열기
+                            </p>
+                          </div>
                         </button>
                       ) : (
                         <div
