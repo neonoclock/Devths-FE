@@ -822,6 +822,7 @@ export default function ChatRoomPage({ roomId, mode = 'room' }: ChatRoomPageProp
     ),
     [handleSettingsClick],
   );
+  const settingsRightSlot = useMemo(() => <div className="h-9 w-9" aria-hidden="true" />, []);
 
   useEffect(() => {
     setFrameOptions({ showBottomNav: false });
@@ -833,7 +834,7 @@ export default function ChatRoomPage({ roomId, mode = 'room' }: ChatRoomPageProp
       title: isSettingsPage ? '채팅방 설정' : headerTitle,
       showBackButton: true,
       onBackClick: isSettingsPage ? handleCloseSettings : handleBackClick,
-      rightSlot: isSettingsPage ? undefined : rightSlot,
+      rightSlot: isSettingsPage ? settingsRightSlot : rightSlot,
     });
 
     return () => resetOptions();
@@ -844,6 +845,7 @@ export default function ChatRoomPage({ roomId, mode = 'room' }: ChatRoomPageProp
     isSettingsPage,
     resetOptions,
     rightSlot,
+    settingsRightSlot,
     setOptions,
   ]);
 
@@ -1467,8 +1469,8 @@ export default function ChatRoomPage({ roomId, mode = 'room' }: ChatRoomPageProp
       ) : null}
 
       {isSettingsPage ? (
-        <div className="fixed inset-x-0 top-14 bottom-0 z-40 overflow-y-auto bg-white">
-          <section className="mx-auto w-full max-w-[430px] px-3 pt-4 pb-24">
+        <div className="fixed inset-x-0 top-14 bottom-0 z-40 overflow-y-auto">
+          <section className="mx-auto min-h-full w-full max-w-[430px] bg-white px-3 pt-4 pb-24">
             <h2 className="text-base font-semibold text-neutral-900">채팅방 설정</h2>
 
             <div className="mt-4 rounded-xl border border-neutral-200 p-3">
