@@ -29,8 +29,8 @@ function parseLlmDateTime(value: string): Date {
     return new Date(normalized);
   }
 
-  // AI chatbot timestamps are serialized without timezone, but actual values are UTC.
-  return new Date(`${normalized}Z`);
+  // AI chatbot timestamps are serialized as LocalDateTime (KST wall-clock) without timezone.
+  return new Date(`${normalized}+09:00`);
 }
 
 export function formatUpdatedAt(isoString: string): string {
