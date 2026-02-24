@@ -314,81 +314,85 @@ export default function ChatPlaceholderPage() {
         ) : null}
 
         {!isLoading && !isError && rooms.length > 0 ? (
-          <section className="mt-3 space-y-2">
-            {rooms.map((room) => {
-              const rejoinedUiOverride = rejoinedRoomUiOverrides[room.roomId];
-              const shouldHideLastMessagePreview = Boolean(
-                rejoinedUiOverride?.hideLastMessagePreview,
-              );
-              const previewText = shouldHideLastMessagePreview
-                ? '최근 채팅방 내용이 없습니다.'
-                : room.lastMessageContent?.trim() || '최근 채팅방 내용이 없습니다.';
-              const formattedTime = shouldHideLastMessagePreview
-                ? ''
-                : formatRoomTime(room.lastMessageAt);
-              const showUnreadDot = Boolean(roomUnreadFlags[room.roomId]);
-              const roomProfileImage =
-                rejoinedUiOverride?.profileImage ?? room.profileImage ?? null;
+          <>
+            <button
+              type="button"
+              onClick={() => requestNavigation(() => router.push('/chat/new'))}
+              className="mt-1 flex w-full items-center justify-between rounded-2xl bg-[#05C075] px-5 py-4 text-left transition-colors active:bg-[#049e61]"
+              aria-label="새 채팅 시작"
+            >
+              <div className="flex flex-col gap-0.5">
+                <span className="text-[17px] font-bold text-white">새 채팅 시작</span>
+                <span className="text-[13px] text-white/80">유저와 대화를 시작해보세요</span>
+              </div>
 
-              return (
-                <button
-                  key={room.roomId}
-                  type="button"
-                  onClick={() => requestNavigation(() => router.push(`/chat/${room.roomId}`))}
-                  className="flex w-full items-start gap-3 rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-left transition hover:bg-neutral-50"
-                >
-                  {roomProfileImage ? (
-                    <Image
-                      src={roomProfileImage}
-                      alt={`${truncateRoomName(room.title)} 프로필`}
-                      width={48}
-                      height={48}
-                      className="mt-0.5 h-12 w-12 rounded-full object-cover"
-                    />
-                  ) : (
-                    <div className="mt-0.5 h-12 w-12 rounded-full bg-neutral-200" />
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-[15px] font-semibold text-neutral-900">
-                      {truncateRoomName(room.title)}
-                    </p>
-                    <p className="mt-1 truncate text-sm text-neutral-500">{previewText}</p>
-                  </div>
-                  <div className="mt-0.5 flex items-center gap-1.5">
-                    {showUnreadDot ? (
-                      <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
-                    ) : null}
-                    <span className="text-[11px] text-neutral-400">{formattedTime}</span>
-                  </div>
-                </button>
-              );
-            })}
+              <div className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-white/20">
+                <Plus className="h-6 w-6 text-white" strokeWidth={2.5} />
+              </div>
+            </button>
 
-            <ListLoadMoreSentinel
-              onLoadMore={() => void fetchNextPage()}
-              hasNextPage={hasNextPage ?? false}
-              isFetchingNextPage={isFetchingNextPage}
-              loadingText="채팅방을 더 불러오는 중..."
-              hasNextText="스크롤하면 더 볼 수 있습니다"
-              endText=""
-            />
-          </section>
+            <section className="mt-4 space-y-2">
+              {rooms.map((room) => {
+                const rejoinedUiOverride = rejoinedRoomUiOverrides[room.roomId];
+                const shouldHideLastMessagePreview = Boolean(
+                  rejoinedUiOverride?.hideLastMessagePreview,
+                );
+                const previewText = shouldHideLastMessagePreview
+                  ? '최근 채팅방 내용이 없습니다.'
+                  : room.lastMessageContent?.trim() || '최근 채팅방 내용이 없습니다.';
+                const formattedTime = shouldHideLastMessagePreview
+                  ? ''
+                  : formatRoomTime(room.lastMessageAt);
+                const showUnreadDot = Boolean(roomUnreadFlags[room.roomId]);
+                const roomProfileImage =
+                  rejoinedUiOverride?.profileImage ?? room.profileImage ?? null;
+
+                return (
+                  <button
+                    key={room.roomId}
+                    type="button"
+                    onClick={() => requestNavigation(() => router.push(`/chat/${room.roomId}`))}
+                    className="flex w-full items-start gap-3 rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-left transition hover:bg-neutral-50"
+                  >
+                    {roomProfileImage ? (
+                      <Image
+                        src={roomProfileImage}
+                        alt={`${truncateRoomName(room.title)} 프로필`}
+                        width={48}
+                        height={48}
+                        className="mt-0.5 h-12 w-12 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="mt-0.5 h-12 w-12 rounded-full bg-neutral-200" />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[15px] font-semibold text-neutral-900">
+                        {truncateRoomName(room.title)}
+                      </p>
+                      <p className="mt-1 truncate text-sm text-neutral-500">{previewText}</p>
+                    </div>
+                    <div className="mt-0.5 flex items-center gap-1.5">
+                      {showUnreadDot ? (
+                        <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
+                      ) : null}
+                      <span className="text-[11px] text-neutral-400">{formattedTime}</span>
+                    </div>
+                  </button>
+                );
+              })}
+
+              <ListLoadMoreSentinel
+                onLoadMore={() => void fetchNextPage()}
+                hasNextPage={hasNextPage ?? false}
+                isFetchingNextPage={isFetchingNextPage}
+                loadingText="채팅방을 더 불러오는 중..."
+                hasNextText="스크롤하면 더 볼 수 있습니다"
+                endText=""
+              />
+            </section>
+          </>
         ) : null}
       </main>
-
-      <div className="pointer-events-none fixed bottom-20 left-1/2 z-40 w-full max-w-[430px] -translate-x-1/2 px-4">
-        <div className="flex justify-end">
-          <button
-            type="button"
-            onClick={() => requestNavigation(() => router.push('/chat/new'))}
-            aria-label="채팅방 생성"
-            className="pointer-events-auto inline-flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-b from-[#1CD48A] to-[#05C075] text-white shadow-[0_12px_24px_rgba(5,192,117,0.35)] ring-1 ring-white/60 transition hover:scale-105 hover:from-[#2DE09A] hover:to-[#07B374] active:translate-y-0.5"
-            hidden={!(!isLoading && !isError && rooms.length > 0)}
-          >
-            <Plus className="h-5 w-5" />
-          </button>
-        </div>
-      </div>
     </>
   );
 }
