@@ -331,7 +331,7 @@ export default function ChatPlaceholderPage() {
               </div>
             </button>
 
-            <section className="mt-4 space-y-2">
+            <section className="mt-4 divide-y divide-neutral-200">
               {rooms.map((room) => {
                 const rejoinedUiOverride = rejoinedRoomUiOverrides[room.roomId];
                 const shouldHideLastMessagePreview = Boolean(
@@ -352,7 +352,7 @@ export default function ChatPlaceholderPage() {
                     key={room.roomId}
                     type="button"
                     onClick={() => requestNavigation(() => router.push(`/chat/${room.roomId}`))}
-                    className="flex w-full items-start gap-3 rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-left transition hover:bg-neutral-50"
+                    className="flex w-full items-start gap-3 px-1 py-4 text-left transition hover:bg-neutral-50"
                   >
                     {roomProfileImage ? (
                       <Image
