@@ -297,8 +297,15 @@ export default function ChatPlaceholderPage() {
         ) : null}
 
         {!isLoading && !isError && rooms.length === 0 ? (
-          <div className="mt-4 flex h-[40vh] items-center justify-center rounded-2xl border border-neutral-200 bg-white text-sm text-neutral-500">
-            참여 중인 채팅방이 없습니다
+          <div className="mt-4 flex h-[40vh] flex-col items-center justify-center gap-4 rounded-2xl border border-neutral-200 bg-white px-4">
+            <p className="text-sm text-neutral-500">참여 중인 채팅방이 없습니다</p>
+            <button
+              type="button"
+              onClick={() => requestNavigation(() => router.push('/chat/new'))}
+              className="inline-flex items-center justify-center rounded-xl bg-neutral-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-neutral-800 active:translate-y-px"
+            >
+              새 채팅 시작하기
+            </button>
           </div>
         ) : null}
 
@@ -372,6 +379,7 @@ export default function ChatPlaceholderPage() {
             onClick={() => requestNavigation(() => router.push('/chat/new'))}
             aria-label="채팅방 생성"
             className="pointer-events-auto inline-flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-b from-[#1CD48A] to-[#05C075] text-white shadow-[0_12px_24px_rgba(5,192,117,0.35)] ring-1 ring-white/60 transition hover:scale-105 hover:from-[#2DE09A] hover:to-[#07B374] active:translate-y-0.5"
+            hidden={!(!isLoading && !isError && rooms.length > 0)}
           >
             <Plus className="h-5 w-5" />
           </button>
