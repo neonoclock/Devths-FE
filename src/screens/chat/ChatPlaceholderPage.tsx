@@ -159,7 +159,7 @@ export default function ChatPlaceholderPage() {
 
   useEffect(() => {
     setOptions({
-      title: '채팅',
+      title: 'Devths',
       showBackButton: false,
     });
 

@@ -22,8 +22,19 @@ export type UIMessage = {
   isInterviewEvaluation?: boolean;
 };
 
+function parseLlmDateTime(value: string): Date {
+  const normalized = value.includes(' ') ? value.replace(' ', 'T') : value;
+  const hasTimezone = /([zZ]|[+-]\d{2}:\d{2})$/.test(normalized);
+  if (hasTimezone) {
+    return new Date(normalized);
+  }
+
+  // AI chatbot timestamps are serialized as LocalDateTime (KST wall-clock) without timezone.
+  return new Date(`${normalized}+09:00`);
+}
+
 export function formatUpdatedAt(isoString: string): string {
-  const date = new Date(isoString);
+  const date = parseLlmDateTime(isoString);
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
   const diffMins = Math.floor(diffMs / (1000 * 60));
@@ -88,7 +99,7 @@ export function toUIMessage(msg: ChatMessage): UIMessage {
 }
 
 function formatMessageTime(isoString: string): string {
-  const date = new Date(isoString);
+  const date = parseLlmDateTime(isoString);
   return date.toLocaleTimeString('ko-KR', {
     hour: 'numeric',
     minute: '2-digit',

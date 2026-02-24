@@ -209,6 +209,7 @@ export default function ChatRoomPage({ roomId }: ChatRoomPageProps) {
   const fileAttachmentInputRef = useRef<HTMLInputElement>(null);
   const unreadDividerRef = useRef<HTMLDivElement>(null);
   const deleteLongPressTimerRef = useRef<number | null>(null);
+  const initialScrollResyncTimerRef = useRef<number | null>(null);
   const hasInitialScrollRef = useRef(false);
   const isLoadingOlderRef = useRef(false);
   const prevScrollHeightRef = useRef(0);
@@ -820,6 +821,10 @@ export default function ChatRoomPage({ roomId }: ChatRoomPageProps) {
   useEffect(() => {
     return () => {
       clearDeleteLongPressTimer();
+      if (initialScrollResyncTimerRef.current !== null) {
+        window.clearTimeout(initialScrollResyncTimerRef.current);
+        initialScrollResyncTimerRef.current = null;
+      }
     };
   }, [clearDeleteLongPressTimer]);
 
@@ -845,6 +850,24 @@ export default function ChatRoomPage({ roomId }: ChatRoomPageProps) {
         container.scrollTop = Math.max(0, dividerTop - container.clientHeight * 0.35);
       } else {
         container.scrollTop = container.scrollHeight;
+        requestAnimationFrame(() => {
+          const currentContainer = messageListRef.current;
+          if (!currentContainer) {
+            return;
+          }
+          currentContainer.scrollTop = currentContainer.scrollHeight;
+        });
+        if (initialScrollResyncTimerRef.current !== null) {
+          window.clearTimeout(initialScrollResyncTimerRef.current);
+        }
+        initialScrollResyncTimerRef.current = window.setTimeout(() => {
+          const currentContainer = messageListRef.current;
+          if (!currentContainer) {
+            return;
+          }
+          currentContainer.scrollTop = currentContainer.scrollHeight;
+          initialScrollResyncTimerRef.current = null;
+        }, 300);
       }
       hasInitialScrollRef.current = true;
       return;

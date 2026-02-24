@@ -30,6 +30,8 @@ export function useCreatePrivateRoomMutation() {
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: chatKeys.all });
+      void queryClient.invalidateQueries({ queryKey: chatKeys.rooms() });
+      void queryClient.refetchQueries({ queryKey: chatKeys.rooms(), type: 'all' });
     },
   });
 }
