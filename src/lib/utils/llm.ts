@@ -22,15 +22,15 @@ export type UIMessage = {
   isInterviewEvaluation?: boolean;
 };
 
-function parseLlmDateTime(value: string): Date {
+export function parseLlmDateTime(value: string): Date {
   const normalized = value.includes(' ') ? value.replace(' ', 'T') : value;
   const hasTimezone = /([zZ]|[+-]\d{2}:\d{2})$/.test(normalized);
   if (hasTimezone) {
     return new Date(normalized);
   }
 
-  // AI chatbot timestamps are serialized as LocalDateTime (KST wall-clock) without timezone.
-  return new Date(`${normalized}+09:00`);
+  // AI chatbot timestamps are serialized without timezone info but represent UTC.
+  return new Date(`${normalized}Z`);
 }
 
 export function formatUpdatedAt(isoString: string): string {

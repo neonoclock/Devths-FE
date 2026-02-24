@@ -12,7 +12,7 @@ import { useDeleteRoomMutation } from '@/lib/hooks/llm/useDeleteRoomMutation';
 import { useRoomsInfiniteQuery } from '@/lib/hooks/llm/useRoomsInfiniteQuery';
 import { useAnalysisTaskStore } from '@/lib/llm/analysisTaskStore';
 import { toast } from '@/lib/toast/store';
-import { formatUpdatedAt, mapAiChatRoomToLlmRoom } from '@/lib/utils/llm';
+import { formatUpdatedAt, mapAiChatRoomToLlmRoom, parseLlmDateTime } from '@/lib/utils/llm';
 
 export default function LlmRoomsPage() {
   const router = useRouter();
@@ -80,8 +80,8 @@ export default function LlmRoomsPage() {
     data?.pages
       .flatMap((page) => (page ? page.rooms : []))
       .sort((a, b) => {
-        // ISO 문자열 비교 (최신순 = 내림차순)
-        return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+        // Backend timestamps may be timezone-less LocalDateTime strings that represent UTC.
+        return parseLlmDateTime(b.updatedAt).getTime() - parseLlmDateTime(a.updatedAt).getTime();
       })
       .map(mapAiChatRoomToLlmRoom) ?? [];
 
