@@ -17,7 +17,7 @@ jobs:
   release-candidate:
     name: RC Prerelease 업데이트
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/heads/release/')
+    if: startsWith(github.ref, 'refs/heads/release/') && !github.event.created
     steps:
       - name: Checkout
         uses: actions/checkout@v4

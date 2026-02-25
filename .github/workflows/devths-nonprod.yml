@@ -42,6 +42,7 @@ jobs:
   lint:
     runs-on: ubuntu-22.04
     timeout-minutes: 15
+    if: ${{ !github.event.created }}
     steps:
       - name: 체크아웃
         uses: actions/checkout@v4
@@ -68,6 +69,7 @@ jobs:
   static-analysis:
     runs-on: ubuntu-22.04
     timeout-minutes: 15
+    if: ${{ !github.event.created }}
     permissions:
       actions: read
       contents: read
@@ -348,7 +350,7 @@ jobs:
     runs-on: ubuntu-22.04
     timeout-minutes: 15
     needs: [lint, static-analysis, build]
-    if: always()
+    if: always() && !github.event.created
     steps:
       - name: Discord 알림 전송
         uses: sarisia/actions-status-discord@v1
@@ -379,7 +381,7 @@ jobs:
     runs-on: ubuntu-22.04
     timeout-minutes: 15
     needs: [build, deploy]
-    if: always()
+    if: always() && !github.event.created
     steps:
       - name: Discord 알림 전송
         uses: sarisia/actions-status-discord@v1
@@ -406,7 +408,7 @@ jobs:
   # 7. E2E 테스트 (배포 성공 시 실행)
   e2e-test:
     needs: [deploy]
-    if: startsWith(github.ref_name, 'release/')
+    if: startsWith(github.ref_name, 'release/') && !github.event.created
     uses: ./.github/workflows/devths-playwright.yml
     with:
       target_url: 'https://stg.devths.com'
