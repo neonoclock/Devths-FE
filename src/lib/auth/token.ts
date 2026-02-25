@@ -1,6 +1,7 @@
 const ACCESS_TOKEN_KEY = 'devths_access_token';
 const TEMP_TOKEN_KEY = 'devths_signup_temp_token';
 const SIGNUP_EMAIL_KEY = 'devths_signup_email';
+const AUTH_REDIRECT_KEY = 'devths_auth_redirect';
 
 export function setAccessToken(token: string) {
   if (typeof window === 'undefined') return;
@@ -86,4 +87,20 @@ export function clearSignupEmail() {
 export function clearSignupContext() {
   clearTempToken();
   clearSignupEmail();
+}
+
+export function setAuthRedirect(path: string) {
+  if (typeof window === 'undefined') return;
+  if (!path) return;
+  sessionStorage.setItem(AUTH_REDIRECT_KEY, path);
+}
+
+export function getAuthRedirect() {
+  if (typeof window === 'undefined') return null;
+  return sessionStorage.getItem(AUTH_REDIRECT_KEY);
+}
+
+export function clearAuthRedirect() {
+  if (typeof window === 'undefined') return;
+  sessionStorage.removeItem(AUTH_REDIRECT_KEY);
 }

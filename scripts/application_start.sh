@@ -1,73 +1,67 @@
 #!/bin/bash
 set -e
 
-echo "===== ApplicationStart: Node.js 서버 시작 및 Nginx 복구 ====="
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "ApplicationStart: Docker 컨테이너 시작"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-AVAILABLE_DIR="/etc/nginx/sites-available"
-ENABLED_DIR="/etc/nginx/sites-enabled"
-DEPLOY_DIR="/home/ubuntu/fe"
-
-# 1. 기존 PM2 프로세스 중지 (존재하는 경우)
-echo "🛑 기존 PM2 프로세스를 중지합니다..."
-sudo -u ubuntu pm2 delete devths-fe 2>/dev/null || echo "기존 프로세스가 없습니다."
-
-# 2. PM2로 Next.js 서버 시작 (pnpm start 사용)
-echo "🚀 PM2로 Next.js 서버를 시작합니다..."
+DEPLOY_DIR="/home/ubuntu/app"
 cd "$DEPLOY_DIR"
-sudo -u ubuntu pm2 start npm --name devths-fe --time -- start
 
-# 3. PM2 프로세스 상태 확인
-echo "⏳ PM2 프로세스 상태를 확인합니다..."
-sleep 3
-if sudo -u ubuntu pm2 list | grep -q "devths-fe"; then
-    echo "✅ Next.js 서버가 시작되었습니다."
-    sudo -u ubuntu pm2 info devths-fe
-else
-    echo "❌ Next.js 서버 시작 실패"
-    sudo -u ubuntu pm2 logs devths-fe --lines 50
+# image-info.env 파일에서 이미지 정보 로드
+if [ ! -f "image-info.env" ]; then
+    echo "❌ image-info.env 파일이 없습니다"
     exit 1
 fi
 
-# 4. PM2 프로세스 저장 (재부팅 시 자동 시작)
-echo "💾 PM2 프로세스를 저장합니다..."
-sudo -u ubuntu pm2 save
+source image-info.env
+export ECR_IMAGE=$FULL_IMAGE
+export ENV_FILE=${ENV_FILE:-.env.prod}
 
-# 5. 🔧 Maintenance 모드 비활성화
-echo "🔧 Maintenance 모드를 비활성화합니다..."
+echo "🐳 Docker 이미지: $ECR_IMAGE"
+echo "📝 환경 파일: $ENV_FILE"
 
-# 유지보수 링크 제거
-if [ -L "${ENABLED_DIR}/maintenance" ]; then
-    sudo rm "${ENABLED_DIR}/maintenance"
-    echo "✅ maintenance 링크를 제거했습니다."
-fi
-
-# 프런트엔드 사이트 링크 다시 연결
-if [ -f "${AVAILABLE_DIR}/fe" ]; then
-    sudo ln -sf "${AVAILABLE_DIR}/fe" "${ENABLED_DIR}/fe"
-    echo "✅ frontend 링크를 복구했습니다."
+# 환경 변수 파일 확인
+if [ -f "$ENV_FILE" ]; then
+    echo "✅ $ENV_FILE 파일 발견 (docker-compose가 자동으로 로드합니다)"
+    echo "📝 환경 변수 미리보기:"
+    head -n 3 "$ENV_FILE"
 else
-    echo "❌ 에러: ${AVAILABLE_DIR}/fe 원본 파일이 없습니다!"
-    exit 1
+    echo "⚠️  $ENV_FILE 파일이 없습니다"
+    echo "   환경 변수 없이 실행됩니다"
 fi
 
-# 6. Nginx 검증 및 재시작
-echo "🔄 Nginx 설정을 검증합니다..."
-sudo nginx -t
+# Docker Compose 실행
+echo "🚀 Docker Compose로 컨테이너 시작..."
 
-echo "🔄 Nginx를 다시 로드합니다..."
-sudo systemctl reload nginx || sudo systemctl restart nginx
-
-# Nginx 상태 확인
-if sudo systemctl is-active --quiet nginx; then
-    echo "✅ Nginx가 정상적으로 실행 중입니다."
+if command -v docker-compose &> /dev/null; then
+    docker-compose up -d
 else
-    echo "❌ Nginx 시작 실패"
-    exit 1
+    docker compose up -d
 fi
 
-echo ""
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+# 컨테이너 시작 대기 (약간의 여유 시간)
+echo "⏳ 컨테이너 시작 대기 중..."
+sleep 5
+
+# 컨테이너 상태 확인
+echo "🔍 컨테이너 상태 확인..."
+docker ps
+
+# 주요 컨테이너 확인
+REQUIRED_CONTAINERS=("devths-fe")
+
+for CONTAINER in "${REQUIRED_CONTAINERS[@]}"; do
+    if docker ps | grep -q "$CONTAINER"; then
+        echo "✅ $CONTAINER 실행 중"
+    else
+        echo "❌ $CONTAINER 실행 실패"
+        echo "로그 확인:"
+        docker logs "$CONTAINER" --tail 50 || true
+        exit 1
+    fi
+done
+
 echo "✅ ApplicationStart 완료"
-echo "📌 Next.js 서버: http://localhost:3000 (PM2 클러스터 모드)"
-echo "📌 Nginx: 리버스 프록시 설정 필요 (/etc/nginx/sites-available/fe)"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+echo "📌 다음 단계: ValidateService에서 헬스체크 통과 대기"

@@ -1,10 +1,11 @@
-name: Devths-FE CI 파이프라인
+name: Devths-FE PR 파이프라인
 
 on:
   pull_request:
     branches:
       - develop
       - release/*
+      - hotfix/*
       - main
 
 env:

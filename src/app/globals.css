@@ -143,6 +143,49 @@
 }
 
 @layer components {
+  .markdown-preview {
+    @apply text-sm leading-relaxed text-neutral-700;
+  }
+
+  .markdown-preview h1 {
+    @apply text-lg font-semibold text-neutral-900;
+  }
+
+  .markdown-preview h2 {
+    @apply text-base font-semibold text-neutral-900;
+  }
+
+  .markdown-preview h3 {
+    @apply text-sm font-semibold text-neutral-900;
+  }
+
+  .markdown-preview p {
+    @apply text-sm text-neutral-700;
+  }
+
+  .markdown-preview ul {
+    @apply list-disc pl-5 text-sm text-neutral-700;
+  }
+
+  .markdown-preview ol {
+    @apply list-decimal pl-5 text-sm text-neutral-700;
+  }
+
+  .markdown-preview li {
+    @apply my-1;
+  }
+
+  .markdown-preview a {
+    @apply text-[#05C075] underline;
+  }
+
+  .markdown-preview .md-pre {
+    @apply my-3 rounded-xl bg-neutral-100 px-3 py-2 text-xs text-neutral-800;
+  }
+
+  .markdown-preview .md-inline {
+    @apply rounded bg-neutral-100 px-1.5 py-0.5 text-xs text-neutral-800;
+  }
   .calendar-shell {
     @apply w-full;
   }

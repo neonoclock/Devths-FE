@@ -1,6 +1,7 @@
 'use client';
 
 import Image from 'next/image';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 
@@ -12,7 +13,14 @@ import FileTooLargeModal from '@/components/signup/FileTooLargeModal';
 import { INTEREST_OPTIONS, type InterestValue } from '@/constants/interests';
 import { postPresignedSignup } from '@/lib/api/files';
 import { postSignup } from '@/lib/api/users';
-import { clearSignupContext, getSignupEmail, getTempToken, setAccessToken } from '@/lib/auth/token';
+import {
+  clearAuthRedirect,
+  clearSignupContext,
+  getAuthRedirect,
+  getSignupEmail,
+  getTempToken,
+  setAccessToken,
+} from '@/lib/auth/token';
 import { toast } from '@/lib/toast/store';
 import { uploadToPresignedUrl } from '@/lib/upload/s3Presigned';
 import { getNicknameErrorMessage } from '@/lib/validators/nickname';
@@ -29,6 +37,7 @@ export default function SignupPage() {
   const [profileImageS3Key, setProfileImageS3Key] = useState<string | null>(null);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isPrivacyAgreed, setIsPrivacyAgreed] = useState(false);
 
   const [tempToken, setTempTokenState] = useState<string | null>(null);
   const [email, setEmailState] = useState<string | null>(null);
@@ -137,6 +146,10 @@ export default function SignupPage() {
   const handleSubmit = async () => {
     if (!tempToken || !email) return;
     if (!isNicknameValid) return;
+    if (!isPrivacyAgreed) {
+      toast('개인정보 처리방침 동의가 필요합니다.');
+      return;
+    }
 
     setIsSubmitting(true);
     try {
@@ -174,7 +187,13 @@ export default function SignupPage() {
 
       clearSignupContext();
 
-      router.replace('/llm');
+      const redirect = getAuthRedirect();
+      if (redirect) {
+        clearAuthRedirect();
+        router.replace(redirect);
+      } else {
+        router.replace('/llm');
+      }
     } catch (e) {
       const msg = e instanceof Error ? e.message : '회원가입 처리 중 오류가 발생했습니다.';
       toast(msg);
@@ -245,11 +264,31 @@ export default function SignupPage() {
                 />
               </div>
             </div>
+
+            <div className="mt-2 px-1">
+              <label className="flex items-start gap-2 text-sm text-neutral-700">
+                <input
+                  type="checkbox"
+                  checked={isPrivacyAgreed}
+                  onChange={(event) => setIsPrivacyAgreed(event.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-[#81D247] accent-[#81D247] focus:ring-[#81D247]"
+                />
+                <span>
+                  <Link
+                    href="/privacy"
+                    className="underline underline-offset-2 hover:text-neutral-900"
+                  >
+                    개인정보 처리방침
+                  </Link>
+                  에 동의합니다.
+                </span>
+              </label>
+            </div>
           </section>
 
           <footer className="mt-auto pt-8">
             <PrimaryButton
-              disabled={!isNicknameValid || isUploadingProfile || isSubmitting}
+              disabled={!isNicknameValid || !isPrivacyAgreed || isUploadingProfile || isSubmitting}
               onClick={handleSubmit}
             >
               시작하기

@@ -39,6 +39,7 @@ function EditForm({ initialData, onClose, onWithdraw }: EditFormProps) {
     initialData?.profileImage?.url ?? null,
   );
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isProfileImageDeleted, setIsProfileImageDeleted] = useState(false);
   const [isFileTooLargeOpen, setIsFileTooLargeOpen] = useState(false);
   const [submitMessage, setSubmitMessage] = useState<{
     type: 'success' | 'error';
@@ -55,7 +56,8 @@ function EditForm({ initialData, onClose, onWithdraw }: EditFormProps) {
     uploadImageMutation.isPending ||
     deleteProfileImageMutation.isPending;
 
-  const hasServerImage = Boolean(initialData?.profileImage?.url) && !selectedFile;
+  const hasServerImage =
+    Boolean(initialData?.profileImage?.url) && !selectedFile && !isProfileImageDeleted;
   const userId = initialData?.userId ?? initialData?.id ?? getUserIdFromAccessToken();
 
   const handleToggleInterest = (value: string) => {
@@ -69,12 +71,13 @@ function EditForm({ initialData, onClose, onWithdraw }: EditFormProps) {
     const url = URL.createObjectURL(file);
     setPreviewUrl(url);
     setSelectedFile(file);
+    setIsProfileImageDeleted(false);
     setSubmitMessage(null);
   };
 
   const handleDeleteImage = async () => {
     if (selectedFile) {
-      setPreviewUrl(initialData?.profileImage?.url ?? null);
+      setPreviewUrl(isProfileImageDeleted ? null : (initialData?.profileImage?.url ?? null));
       setSelectedFile(null);
       return;
     }
@@ -84,6 +87,7 @@ function EditForm({ initialData, onClose, onWithdraw }: EditFormProps) {
       try {
         await deleteProfileImageMutation.mutateAsync({ fileId });
         setPreviewUrl(null);
+        setIsProfileImageDeleted(true);
         setSubmitMessage({ type: 'success', text: '프로필 사진이 삭제되었습니다.' });
       } catch {
         setSubmitMessage({ type: 'error', text: '프로필 사진 삭제에 실패했습니다.' });
@@ -105,7 +109,7 @@ function EditForm({ initialData, onClose, onWithdraw }: EditFormProps) {
     const initialNickname = initialData?.nickname ?? '';
     const initialInterests = normalizeInterests(initialData?.interests ?? []);
 
-    const hasImageChange = Boolean(selectedFile);
+    const hasImageChange = Boolean(selectedFile) || isProfileImageDeleted;
     const hasNicknameChange = nickname !== initialNickname;
     const hasInterestsChange =
       interests.length !== initialInterests.length ||
@@ -119,7 +123,7 @@ function EditForm({ initialData, onClose, onWithdraw }: EditFormProps) {
     }
 
     try {
-      if (hasImageChange) {
+      if (selectedFile) {
         if (!userId) {
           setSubmitMessage({ type: 'error', text: '유저 정보를 확인할 수 없습니다.' });
           return;
@@ -170,6 +174,7 @@ function EditForm({ initialData, onClose, onWithdraw }: EditFormProps) {
         <div className="mt-2 flex flex-col items-center">
           <ProfileImagePicker
             previewUrl={previewUrl}
+            fallbackInitial={nickname}
             onSelect={handleSelectImage}
             onFileTooLarge={() => setIsFileTooLargeOpen(true)}
             size="sm"

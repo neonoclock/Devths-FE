@@ -6,8 +6,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import LlmAttachmentSheet from '@/components/llm/analysis/LlmAttachmentSheet';
 import LlmLoadingModal from '@/components/llm/analysis/LlmLoadingModal';
-import LlmModelNotice from '@/components/llm/analysis/LlmModelNotice';
-import LlmModelSwitch from '@/components/llm/analysis/LlmModelSwitch';
 import LlmTextAreaCard from '@/components/llm/analysis/LlmTextAreaCard';
 import {
   IMAGE_MIME_TYPES,
@@ -29,7 +27,6 @@ import type {
   AnalysisFormState,
   CreateRoomResponse,
   DocumentInput,
-  LlmModel,
   StartAnalysisResponse,
 } from '@/types/llm';
 
@@ -95,10 +92,6 @@ export default function LlmAnalysisPage({ roomId, numericRoomId: propNumericRoom
       ...prev,
       jobPosting: { ...prev.jobPosting, ...updates },
     }));
-  }, []);
-
-  const updateModel = useCallback((model: LlmModel) => {
-    setForm((prev) => ({ ...prev, model }));
   }, []);
 
   const getCurrentDoc = useCallback(() => {
@@ -465,12 +458,6 @@ export default function LlmAnalysisPage({ roomId, numericRoomId: propNumericRoom
             </button>
           }
         />
-
-        <LlmModelSwitch value={form.model} onChange={updateModel} />
-      </div>
-
-      <div className="pt-4">
-        <LlmModelNotice model={form.model} />
       </div>
 
       <div className="mt-auto pt-8 pb-8">

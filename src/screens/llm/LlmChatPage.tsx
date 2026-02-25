@@ -74,6 +74,10 @@ export default function LlmChatPage({ roomId: _roomId, numericRoomId, initialMod
   const [interviewSession, setInterviewSession] = useState<InterviewSession | null>(null);
   const [model] = useState<LlmModel>(() => parseModel(initialModel));
   const [isSending, setIsSending] = useState(false);
+  const [isRetryingEvaluation, setIsRetryingEvaluation] = useState(false);
+  const [finishedEvaluationMessageId, setFinishedEvaluationMessageId] = useState<string | null>(
+    null,
+  );
   const [streamingAiId, setStreamingAiId] = useState<string | null>(null);
   const notifiedDeletedRef = useRef(false);
   const { setBlocked, setBlockMessage } = useNavigationGuard();
@@ -140,12 +144,18 @@ export default function LlmChatPage({ roomId: _roomId, numericRoomId, initialMod
   }, [interviewUIState, setBlocked, setBlockMessage, streamingAiId]);
 
   const handleEndInterview = useCallback(
-    async (options?: { userMessageId?: string }) => {
-      if (!interviewSession) return;
+    async (options?: { userMessageId?: string; retry?: boolean; interviewId?: number }) => {
+      const isRetry = options?.retry === true;
+      const targetInterviewId = options?.interviewId ?? interviewSession?.interviewId ?? null;
+      if (!targetInterviewId) return;
 
       const userMessageId = options?.userMessageId;
 
-      setInterviewUIState('ending');
+      if (isRetry) {
+        setIsRetryingEvaluation(true);
+      } else {
+        setInterviewUIState('ending');
+      }
 
       const systemId = `sys-${Date.now()}`;
       const evalId = `temp-eval-${Date.now()}`;
@@ -153,22 +163,29 @@ export default function LlmChatPage({ roomId: _roomId, numericRoomId, initialMod
       setStreamingAiId(evalId);
       setLocalMessages((prev) => [
         ...prev,
-        {
-          id: systemId,
-          role: 'SYSTEM',
-          text: '면접이 종료되었습니다. 답변 평가를 시작합니다.',
-        },
+        ...(isRetry
+          ? []
+          : [
+              {
+                id: systemId,
+                role: 'SYSTEM' as const,
+                text: '면접이 종료되었습니다. 답변 평가를 시작합니다.',
+              },
+            ]),
         {
           id: evalId,
           role: 'AI',
           text: '',
           time: '평가 중...',
+          interviewId: targetInterviewId,
+          isInterviewEvaluation: true,
         },
       ]);
 
       try {
         const response = await endInterviewStream(numericRoomId, {
-          interviewId: interviewSession.interviewId,
+          interviewId: targetInterviewId,
+          retry: isRetry,
         });
 
         if (!response.ok) {
@@ -205,7 +222,9 @@ export default function LlmChatPage({ roomId: _roomId, numericRoomId, initialMod
                 return m;
               }),
             );
-            setInterviewUIState('active');
+            if (!isRetry) {
+              setInterviewUIState('active');
+            }
             toast(errorMessage);
             return false;
           }
@@ -215,7 +234,9 @@ export default function LlmChatPage({ roomId: _roomId, numericRoomId, initialMod
             setLocalMessages((prev) =>
               prev.map((m) => (m.id === evalId ? { ...m, text: evalText, time: nowLabel() } : m)),
             );
-            setInterviewSession(null);
+            if (!isRetry) {
+              setInterviewSession(null);
+            }
             setInterviewUIState('idle');
             return false;
           }
@@ -227,8 +248,10 @@ export default function LlmChatPage({ roomId: _roomId, numericRoomId, initialMod
           return true;
         });
       } catch {
-        toast('면접 종료에 실패했습니다.');
-        setInterviewUIState('active');
+        toast(isRetry ? '면접 평가 재요청에 실패했습니다.' : '면접 종료에 실패했습니다.');
+        if (!isRetry) {
+          setInterviewUIState('active');
+        }
         setStreamingAiId((prev) => (prev === evalId ? null : prev));
         if (userMessageId) {
           setLocalMessages((prev) =>
@@ -236,6 +259,10 @@ export default function LlmChatPage({ roomId: _roomId, numericRoomId, initialMod
               m.id === userMessageId ? { ...m, status: 'failed', time: '전송 실패' } : m,
             ),
           );
+        }
+      } finally {
+        if (isRetry) {
+          setIsRetryingEvaluation(false);
         }
       }
     },
@@ -562,6 +589,36 @@ export default function LlmChatPage({ roomId: _roomId, numericRoomId, initialMod
     () => [...serverMessages, ...localMessages],
     [serverMessages, localMessages],
   );
+  const latestInterviewEvaluationMessage = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i -= 1) {
+      if (messages[i].isInterviewEvaluation) {
+        return messages[i];
+      }
+    }
+    return null;
+  }, [messages]);
+
+  const handleRetryInterviewEvaluation = useCallback(() => {
+    const targetInterviewId = latestInterviewEvaluationMessage?.interviewId;
+    if (!targetInterviewId) {
+      toast('재시도할 면접 평가 정보를 찾을 수 없습니다.');
+      return;
+    }
+    void handleEndInterview({ retry: true, interviewId: targetInterviewId });
+  }, [handleEndInterview, latestInterviewEvaluationMessage]);
+
+  const handleFinishInterview = useCallback((messageId: string) => {
+    setFinishedEvaluationMessageId(messageId);
+    setInterviewSession(null);
+    setInterviewUIState('idle');
+  }, []);
+
+  const isInterviewEvaluationActionsDisabled =
+    (latestInterviewEvaluationMessage?.id !== null &&
+      latestInterviewEvaluationMessage?.id !== undefined &&
+      latestInterviewEvaluationMessage.id === finishedEvaluationMessageId) ||
+    isRetryingEvaluation;
+
   const isComposerDisabled =
     isSending ||
     Boolean(streamingAiId) ||
@@ -617,6 +674,13 @@ export default function LlmChatPage({ roomId: _roomId, numericRoomId, initialMod
           isLoadingMore={isFetchingNextPage}
           onRetry={handleRetry}
           onDeleteFailed={handleDeleteFailed}
+          retryEvaluationMessageId={
+            interviewUIState === 'idle' ? (latestInterviewEvaluationMessage?.id ?? null) : null
+          }
+          onRetryEvaluation={() => handleRetryInterviewEvaluation()}
+          onFinishInterview={handleFinishInterview}
+          isRetryEvaluationLoading={isRetryingEvaluation}
+          isInterviewEvaluationActionsDisabled={isInterviewEvaluationActionsDisabled}
         />
 
         <div className="bg-white px-3 py-2">

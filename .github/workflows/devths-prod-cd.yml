@@ -1,4 +1,4 @@
-name: Devths-FE 운영 배포
+name: Devths-FE 운영용 CD 파이프라인
 
 on:
   workflow_dispatch:
@@ -14,10 +14,19 @@ on:
         default: 'Manual deployment from GitHub Actions'
 
 env:
+  # AWS 설정
+  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_KEY }}
   AWS_REGION: ${{ secrets.AWS_REGION }}
   S3_BUCKET: ${{ secrets.AWS_S3_BUCKET_PROD }}
+
+  # CodeDeploy 설정
   CODEDEPLOY_APP_NAME: ${{ secrets.CODEDEPLOY_APP_NAME }}
-  CODEDEPLOY_DEPLOYMENT_GROUP: ${{ secrets.CODE_DEPLOY_GROUP_NAME_PROD }}
+  CODEDEPLOY_DEPLOYMENT_GROUP: ${{ secrets.CODE_DEPLOY_GROUP_NAME_PROD_V2 }}
+
+  # Discord 설정
+  DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_PROD_URL }}
+  DISCORD_AVATAR_URL: https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png
 
 jobs:
   # 승인 요청 알림 (즉시 실행)
@@ -40,7 +49,7 @@ jobs:
       - name: Discord 승인 요청 알림
         uses: sarisia/actions-status-discord@v1
         with:
-          webhook: ${{ secrets.DISCORD_WEBHOOK_PROD_URL }}
+          webhook: ${{ env.DISCORD_WEBHOOK_URL }}
           status: 'success'
           content: '@everyone'
           title: '🔔 운영 배포 승인 요청'
@@ -65,7 +74,7 @@ jobs:
             **⚠️ 주의**: 2명 모두 승인해야 배포가 시작됩니다.
           color: 16776960
           username: GitHub FE Approval Bot
-          avatar_url: https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png
+          avatar_url: ${{ env.DISCORD_AVATAR_URL }}
 
   # 1차 승인
   first-approval:
@@ -85,7 +94,7 @@ jobs:
       - name: Discord 1차 승인 완료 알림
         uses: sarisia/actions-status-discord@v1
         with:
-          webhook: ${{ secrets.DISCORD_WEBHOOK_PROD_URL }}
+          webhook: ${{ env.DISCORD_WEBHOOK_URL }}
           status: 'success'
           content: '@everyone'
           title: '✅ 1차 승인 완료 (DevOps/TechLead)'
@@ -102,7 +111,7 @@ jobs:
             **승인 방법**: [워크플로우 페이지](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})에서 **Review deployments** 버튼 클릭
           color: 65280
           username: GitHub FE Approval Bot
-          avatar_url: https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png
+          avatar_url: ${{ env.DISCORD_AVATAR_URL }}
 
   # 2차 승인
   second-approval:
@@ -122,7 +131,7 @@ jobs:
       - name: Discord 2차 승인 완료 알림
         uses: sarisia/actions-status-discord@v1
         with:
-          webhook: ${{ secrets.DISCORD_WEBHOOK_PROD_URL }}
+          webhook: ${{ env.DISCORD_WEBHOOK_URL }}
           status: 'success'
           title: '✅ 2차 승인 완료 (TeamLead) - 배포 시작'
           description: |
@@ -137,7 +146,7 @@ jobs:
             **진행 상황**: [워크플로우 페이지](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})에서 확인 가능
           color: 3066993
           username: GitHub FE Approval Bot
-          avatar_url: https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png
+          avatar_url: ${{ env.DISCORD_AVATAR_URL }}
 
   # 운영 배포 (2차 승인 후 자동 실행)
   deploy-production:
@@ -168,8 +177,8 @@ jobs:
       - name: AWS 자격 증명 설정
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_KEY }}
+          aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: S3 아티팩트 존재 확인
@@ -235,7 +244,7 @@ jobs:
         if: needs.deploy-production.result == 'success' || needs.deploy-production.result == 'failure'
         uses: sarisia/actions-status-discord@v1
         with:
-          webhook: ${{ secrets.DISCORD_WEBHOOK_PROD_URL }}
+          webhook: ${{ env.DISCORD_WEBHOOK_URL }}
           status: ${{ needs.deploy-production.result == 'success' && 'success' || 'failure' }}
           title: "🚀 운영 배포 결과 [${{ needs.deploy-production.result == 'success' && '✅성공' || '❌실패' }}]"
           content: '@everyone'
@@ -245,7 +254,7 @@ jobs:
             **트리거**: ${{ github.actor }}
 
             **📦 아티팩트**: `${{ inputs.artifact_key }}`
-            **🪣 S3 Bucket**: `${{ secrets.AWS_S3_BUCKET_PROD }}`
+            **🪣 S3 Bucket**: `${{ env.S3_BUCKET }}`
             **🚀 배포 결과**: ${{ needs.deploy-production.outputs.deployment_status }}
             **🆔 Deployment ID**: `${{ needs.deploy-production.outputs.deployment_id }}`
             **💬 배포 메모**: ${{ inputs.deployment_comment }}
@@ -254,7 +263,7 @@ jobs:
             **🔗 링크**: [워크플로우 확인하기](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
           color: "${{ needs.deploy-production.result == 'success' && 65280 || 16711680 }}"
           username: GitHub FE Production Deploy Bot
-          avatar_url: https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png
+          avatar_url: ${{ env.DISCORD_AVATAR_URL }}
 
       - name: Discord 취소 알림
         if: |
@@ -263,7 +272,7 @@ jobs:
           needs.deploy-production.result == 'cancelled'
         uses: sarisia/actions-status-discord@v1
         with:
-          webhook: ${{ secrets.DISCORD_WEBHOOK_PROD_URL }}
+          webhook: ${{ env.DISCORD_WEBHOOK_URL }}
           status: 'cancelled'
           title: '⚠️ 운영 배포 취소됨'
           content: '@everyone'
@@ -284,5 +293,5 @@ jobs:
 
             **🔗 링크**: [워크플로우 확인하기](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
           color: 16776960
-          username: GitHub FE Production Deploy Bot
-          avatar_url: https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png
+          username: GitHub Production FE Deploy Bot
+          avatar_url: ${{ env.DISCORD_AVATAR_URL }}

@@ -3,10 +3,11 @@ os: linux
 
 files:
   - source: /
-    destination: /home/ubuntu/fe
+    destination: /home/ubuntu/app
+    overwrite: true
 
 permissions:
-  - object: /home/ubuntu/fe
+  - object: /home/ubuntu/app
     pattern: '**'
     owner: ubuntu
     group: ubuntu
@@ -16,22 +17,32 @@ permissions:
       - file
 
 hooks:
+  # 1. 기존 서비스 정리 및 점검 페이지 활성화
+  ApplicationStop:
+    - location: scripts/application_stop.sh
+      timeout: 300
+      runas: root
+
+  # 2. 배포 전 준비 (환경 설정)
   BeforeInstall:
     - location: scripts/before_install.sh
       timeout: 300
       runas: root
 
+  # 3. SSM에서 환경 변수 가져오기 + Docker 이미지 빌드/Pull
   AfterInstall:
     - location: scripts/after_install.sh
-      timeout: 300
+      timeout: 600
       runas: root
 
+  # 4. 컨테이너 시작 (Nginx + App)
   ApplicationStart:
     - location: scripts/application_start.sh
-      timeout: 300
+      timeout: 600
       runas: root
 
+  # 5. 헬스체크 완료 대기
   ValidateService:
     - location: scripts/validate_service.sh
-      timeout: 300
+      timeout: 900
       runas: root

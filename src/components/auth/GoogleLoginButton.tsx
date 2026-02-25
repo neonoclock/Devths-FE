@@ -2,6 +2,8 @@
 
 import Image from 'next/image';
 
+import { setAuthRedirect } from '@/lib/auth/token';
+
 import type { ButtonHTMLAttributes, MouseEventHandler } from 'react';
 
 type GoogleLoginButtonProps = {
@@ -19,6 +21,11 @@ export default function GoogleLoginButton({
     onClick?.(e);
 
     if (e.defaultPrevented) return;
+
+    const redirect = new URL(window.location.href).searchParams.get('redirect');
+    if (redirect) {
+      setAuthRedirect(redirect);
+    }
 
     const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? '';
     const redirectUri = process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URI ?? '';

@@ -18,10 +18,23 @@ export type UIMessage = {
   time?: string;
   attachments?: UIAttachment[];
   status?: MessageStatus;
+  interviewId?: number | null;
+  isInterviewEvaluation?: boolean;
 };
 
+export function parseLlmDateTime(value: string): Date {
+  const normalized = value.includes(' ') ? value.replace(' ', 'T') : value;
+  const hasTimezone = /([zZ]|[+-]\d{2}:\d{2})$/.test(normalized);
+  if (hasTimezone) {
+    return new Date(normalized);
+  }
+
+  // AI chatbot timestamps are serialized without timezone info but represent UTC.
+  return new Date(`${normalized}Z`);
+}
+
 export function formatUpdatedAt(isoString: string): string {
-  const date = new Date(isoString);
+  const date = parseLlmDateTime(isoString);
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
   const diffMins = Math.floor(diffMs / (1000 * 60));
@@ -72,16 +85,21 @@ function mapRole(role: ChatMessage['role']): UIMessage['role'] {
 }
 
 export function toUIMessage(msg: ChatMessage): UIMessage {
+  const isInterviewEvaluation =
+    msg.role === 'ASSISTANT' && msg.type === 'INTERVIEW' && msg.metadata?.evaluation === true;
+
   return {
     id: String(msg.messageId),
     role: mapRole(msg.role),
     text: msg.content,
     time: formatMessageTime(msg.createdAt),
+    interviewId: msg.interviewId,
+    isInterviewEvaluation,
   };
 }
 
 function formatMessageTime(isoString: string): string {
-  const date = new Date(isoString);
+  const date = parseLlmDateTime(isoString);
   return date.toLocaleTimeString('ko-KR', {
     hour: 'numeric',
     minute: '2-digit',

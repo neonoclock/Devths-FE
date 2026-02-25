@@ -4,7 +4,13 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useRef } from 'react';
 
 import { postGoogleAuth } from '@/lib/api/auth';
-import { setAccessToken, setSignupEmail, setTempToken } from '@/lib/auth/token';
+import {
+  clearAuthRedirect,
+  getAuthRedirect,
+  setAccessToken,
+  setSignupEmail,
+  setTempToken,
+} from '@/lib/auth/token';
 
 export default function AuthCallbackClient() {
   const router = useRouter();
@@ -58,7 +64,13 @@ export default function AuthCallbackClient() {
           }
 
           setAccessToken(accessToken);
-          router.replace('/llm');
+          const redirect = getAuthRedirect();
+          if (redirect) {
+            clearAuthRedirect();
+            router.replace(redirect);
+          } else {
+            router.replace('/llm');
+          }
           return;
         }
 

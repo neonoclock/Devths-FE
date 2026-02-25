@@ -52,7 +52,7 @@ export async function postPresigned(body: PresignedRequest) {
   return { ok, status, json };
 }
 
-export type FileCategory = 'RESUME' | 'PORTFOLIO' | 'JOB_POSTING' | 'ATTACHMENT';
+export type FileCategory = 'RESUME' | 'PORTFOLIO' | 'JOB_POSTING' | 'AI_CHAT_ATTACHMENT';
 export type FileRefType = 'CHATROOM' | 'POST' | 'MESSAGE' | 'USER';
 
 export type PostFileMetaRequest = {

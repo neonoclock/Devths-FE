@@ -34,3 +34,10 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## Chat Cursor Rules
+
+- `GET /api/chatrooms` cursor must be sent as `YYYY-MM-DDTHH:mm:ss`.
+- Reuse the `cursor` value returned by the server for the next request.
+- Do not create a new cursor from `new Date()` while paginating chat rooms.
+- If a Date must be serialized, use `toLocalDateTimeParam(date)` from `src/lib/datetime/seoul.ts`.

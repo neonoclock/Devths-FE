@@ -17,7 +17,7 @@ jobs:
   release-candidate:
     name: RC Prerelease 업데이트
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/heads/release/')
+    if: startsWith(github.ref, 'refs/heads/release/') && !github.event.created
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -29,7 +29,7 @@ jobs:
         with:
           script: |
             const branchName = context.ref.replace('refs/heads/', '');
-            const versionMatch = branchName.match(/release\/(v\d+\.\d+\.\d+)/);
+            const versionMatch = branchName.match(/release\/(v\d+\.\d+\.\d+(?:-(?:alpha|beta))?)/);
 
             if (!versionMatch) {
               core.setFailed(`❌ 브랜치명에서 버전을 추출할 수 없습니다: ${branchName}`);
@@ -37,10 +37,22 @@ jobs:
             }
 
             const version = versionMatch[1];
-            const rcTag = `${version}-rc`;
+
+            // 태그명 결정: alpha/beta면 그대로, 아니면 -rc 추가
+            let tagName, releaseType;
+            if (version.includes('-alpha')) {
+              tagName = version;
+              releaseType = 'Alpha';
+            } else if (version.includes('-beta')) {
+              tagName = version;
+              releaseType = 'Beta';
+            } else {
+              tagName = `${version}-rc`;
+              releaseType = 'RC';
+            }
 
             console.log(`📦 Release 버전: ${version}`);
-            console.log(`🏷️ RC 태그: ${rcTag}`);
+            console.log(`🏷️ 태그: ${tagName} (${releaseType})`);
 
             let latestMainTag = null;
             try {
@@ -61,16 +73,28 @@ jobs:
             const generateNotesParams = {
               owner: context.repo.owner,
               repo: context.repo.repo,
-              tag_name: rcTag,
+              tag_name: tagName,
               target_commitish: branchName
             };
             if (latestMainTag) generateNotesParams.previous_tag_name = latestMainTag;
 
             const { data: releaseNotes } = await github.rest.repos.generateReleaseNotes(generateNotesParams);
 
-            const rcBody = `> ⚠️ **주의: 이것은 릴리즈 후보(Release Candidate) 버전입니다.**\n` +
-                           `> 최종 릴리즈는 \`main\` 브랜치 머지 후 자동으로 생성됩니다.\n\n` +
-                           `${releaseNotes.body}\n\n` +
+            // 릴리즈 타입에 따른 경고 메시지
+            let warningMessage;
+            if (releaseType === 'Alpha') {
+              warningMessage = `> ⚠️ **주의: 이것은 알파(Alpha) 버전입니다.**\n` +
+                             `> 개발 초기 단계로 불안정할 수 있으며, 테스트 목적으로만 사용하세요.\n`;
+            } else if (releaseType === 'Beta') {
+              warningMessage = `> ⚠️ **주의: 이것은 베타(Beta) 버전입니다.**\n` +
+                             `> 기능 테스트 단계로 일부 버그가 있을 수 있습니다.\n`;
+            } else {
+              warningMessage = `> ⚠️ **주의: 이것은 릴리즈 후보(Release Candidate) 버전입니다.**\n` +
+                             `> 최종 릴리즈는 \`main\` 브랜치 머지 후 자동으로 생성됩니다.\n`;
+            }
+
+            const rcBody = warningMessage +
+                           `\n${releaseNotes.body}\n\n` +
                            `---\n` +
                            `**📍 베이스 브랜치**: \`${branchName}\`\n` +
                            `**📌 이전 태그**: \`${latestMainTag || 'N/A'}\`\n` +
@@ -81,7 +105,7 @@ jobs:
               const { data: release } = await github.rest.repos.getReleaseByTag({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                tag: rcTag
+                tag: tagName
               });
               existingRelease = release;
             } catch (error) {
@@ -93,7 +117,7 @@ jobs:
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 release_id: existingRelease.id,
-                name: `${version} (RC)`,
+                name: `${version} (${releaseType})`,
                 body: rcBody,
                 prerelease: true,
                 target_commitish: branchName
@@ -102,8 +126,8 @@ jobs:
               await github.rest.repos.createRelease({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                tag_name: rcTag,
-                name: `${version} (RC)`,
+                tag_name: tagName,
+                name: `${version} (${releaseType})`,
                 body: rcBody,
                 prerelease: true,
                 target_commitish: branchName

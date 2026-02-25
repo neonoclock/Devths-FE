@@ -8,6 +8,7 @@ import type { NotificationResponse } from '@/types/notifications';
 
 type NotificationItemProps = {
   notification: NotificationResponse;
+  onClickNotification?: (notification: NotificationResponse) => boolean | void;
 };
 
 function normalizeTargetPath(path: string) {
@@ -53,7 +54,10 @@ function resolveNotificationPath(notification: NotificationResponse) {
   return normalized;
 }
 
-export default function NotificationItem({ notification }: NotificationItemProps) {
+export default function NotificationItem({
+  notification,
+  onClickNotification,
+}: NotificationItemProps) {
   const router = useRouter();
   const senderName = notification.sender?.senderName ?? '시스템';
   const formattedDate = formatNotificationDate(notification.createdAt);
@@ -62,7 +66,11 @@ export default function NotificationItem({ notification }: NotificationItemProps
   return (
     <button
       type="button"
-      onClick={() => router.push(resolveNotificationPath(notification))}
+      onClick={() => {
+        const handled = onClickNotification?.(notification);
+        if (handled) return;
+        router.push(resolveNotificationPath(notification));
+      }}
       className={
         isUnread
           ? 'relative w-full rounded-2xl border border-l-[6px] border-neutral-200 border-l-[#05C075] bg-white px-4 py-3 text-left text-neutral-900'

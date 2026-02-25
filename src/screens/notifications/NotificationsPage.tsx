@@ -1,16 +1,29 @@
 'use client';
 
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
+import FollowUserProfileModal, {
+  type FollowUserProfileModalData,
+} from '@/components/mypage/FollowUserProfileModal';
 import NotificationList from '@/components/notifications/NotificationList';
+import { fetchUserProfile } from '@/lib/api/users';
 import { notificationKeys } from '@/lib/hooks/notifications/queryKeys';
 import { useNotificationsInfiniteQuery } from '@/lib/hooks/notifications/useNotificationsInfiniteQuery';
+import { userKeys } from '@/lib/hooks/users/queryKeys';
+import { useFollowUserMutation } from '@/lib/hooks/users/useFollowUserMutation';
+import { useUnfollowUserMutation } from '@/lib/hooks/users/useUnfollowUserMutation';
+import { toast } from '@/lib/toast/store';
 
 export default function NotificationsPage() {
+  const router = useRouter();
   const [isHydrated, setIsHydrated] = useState(false);
   const [seenIds, setSeenIds] = useState<number[]>([]);
   const queryClient = useQueryClient();
+  const [selectedUser, setSelectedUser] = useState<FollowUserProfileModalData | null>(null);
+  const followMutation = useFollowUserMutation();
+  const unfollowMutation = useUnfollowUserMutation();
   const {
     data,
     isLoading,
@@ -26,6 +39,40 @@ export default function NotificationsPage() {
   const notifications = data?.pages.flatMap((page) => page.notifications) ?? [];
   const sentinelRef = useRef<HTMLDivElement>(null);
   const pendingSeenRef = useRef<Set<number>>(new Set());
+  const selectedUserId = selectedUser?.userId;
+
+  const {
+    data: selectedUserProfile,
+    isLoading: isSelectedUserProfileLoading,
+    isError: isSelectedUserProfileError,
+    refetch: refetchSelectedUserProfile,
+  } = useQuery({
+    queryKey: userKeys.profile(selectedUserId ?? -1),
+    queryFn: async () => {
+      const result = await fetchUserProfile(selectedUserId!);
+
+      if (!result.ok || !result.json) {
+        throw new Error('Failed to fetch user profile');
+      }
+
+      if ('data' in result.json && result.json.data) {
+        return result.json.data;
+      }
+
+      throw new Error('Invalid response format');
+    },
+    enabled: selectedUserId !== undefined,
+  });
+
+  const modalUser: FollowUserProfileModalData | null = selectedUser
+    ? {
+        userId: selectedUser.userId,
+        nickname: selectedUserProfile?.user.nickname ?? selectedUser.nickname,
+        profileImage: selectedUserProfile?.profileImage?.url ?? selectedUser.profileImage,
+        interests: selectedUserProfile?.interests ?? selectedUser.interests,
+        isFollowing: selectedUserProfile?.isFollowing ?? selectedUser.isFollowing,
+      }
+    : null;
 
   const seenIdSet = useMemo(() => new Set(seenIds), [seenIds]);
 
@@ -100,6 +147,52 @@ export default function NotificationsPage() {
     [notifications, seenIdSet],
   );
 
+  const handleNotificationClick = (notification: (typeof displayNotifications)[number]) => {
+    if (notification.type !== 'FOLLOW') return false;
+
+    const targetUserId = notification.sender?.senderId ?? notification.resourceId;
+    if (!targetUserId || targetUserId <= 0) return false;
+
+    setSelectedUser({
+      userId: targetUserId,
+      nickname: notification.sender?.senderName ?? '사용자',
+      profileImage: null,
+      isFollowing: false,
+    });
+
+    return true;
+  };
+
+  const handleFollowInModal = async () => {
+    if (!modalUser) return;
+    const wasFollowing = Boolean(modalUser.isFollowing);
+    try {
+      if (wasFollowing) {
+        await unfollowMutation.mutateAsync(modalUser.userId);
+        setSelectedUser((prev) => (prev ? { ...prev, isFollowing: false } : prev));
+      } else {
+        await followMutation.mutateAsync(modalUser.userId);
+        setSelectedUser((prev) => (prev ? { ...prev, isFollowing: true } : prev));
+      }
+      void refetchSelectedUserProfile();
+    } catch (error) {
+      const err = error as Error & { serverMessage?: string };
+      toast(
+        err.serverMessage ??
+          (wasFollowing ? '언팔로우 처리에 실패했습니다.' : '팔로우 처리에 실패했습니다.'),
+      );
+    }
+  };
+
+  const handleStartChatInModal = () => {
+    if (!modalUser) return;
+
+    const params = new URLSearchParams();
+    params.set('targetUserId', String(modalUser.userId));
+    params.set('from', 'notifications');
+    router.push(`/chat?${params.toString()}`);
+  };
+
   return (
     <main className="px-3 pt-4 pb-3">
       <NotificationList
@@ -107,6 +200,7 @@ export default function NotificationsPage() {
         isLoading={!isHydrated || isLoading}
         isError={isError}
         errorMessage={error instanceof Error ? error.message : '알림을 불러오지 못했습니다.'}
+        onClickNotification={handleNotificationClick}
       />
 
       {isError ? (
@@ -135,6 +229,20 @@ export default function NotificationsPage() {
           ) : null}
         </div>
       ) : null}
+
+      <FollowUserProfileModal
+        open={Boolean(selectedUser)}
+        onClose={() => {
+          setSelectedUser(null);
+        }}
+        user={modalUser}
+        isLoading={isSelectedUserProfileLoading}
+        isError={isSelectedUserProfileError}
+        isFollowPending={followMutation.isPending || unfollowMutation.isPending}
+        onRetry={() => void refetchSelectedUserProfile()}
+        onClickFollow={() => void handleFollowInModal()}
+        onClickChat={handleStartChatInModal}
+      />
     </main>
   );
 }

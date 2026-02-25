@@ -11,6 +11,7 @@ type NotificationListProps = {
   isLoading?: boolean;
   isError?: boolean;
   errorMessage?: string;
+  onClickNotification?: (notification: NotificationResponse) => boolean | void;
 };
 
 function NotificationSkeleton() {
@@ -37,6 +38,7 @@ export default function NotificationList({
   isLoading = false,
   isError = false,
   errorMessage,
+  onClickNotification,
 }: NotificationListProps) {
   if (isLoading) {
     return <NotificationSkeleton />;
@@ -65,7 +67,11 @@ export default function NotificationList({
   return (
     <div className="space-y-3">
       {notifications.map((notification) => (
-        <NotificationItem key={notification.notificationId} notification={notification} />
+        <NotificationItem
+          key={notification.notificationId}
+          notification={notification}
+          onClickNotification={onClickNotification}
+        />
       ))}
     </div>
   );

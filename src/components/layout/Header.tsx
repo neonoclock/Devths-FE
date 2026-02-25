@@ -1,5 +1,6 @@
 'use client';
 
+import clsx from 'clsx';
 import { Bell, ChevronLeft } from 'lucide-react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
@@ -70,12 +71,17 @@ export default function Header({
                 priority
               />
             </button>
-          ) : (
+          ) : title ? (
             <h1 className="text-base font-semibold text-neutral-900">{title}</h1>
-          )}
+          ) : null}
         </div>
 
-        <div className="ml-auto flex w-10 items-center justify-end">
+        <div
+          className={clsx(
+            'ml-auto flex items-center justify-end',
+            rightSlot ? 'w-auto gap-1' : 'w-10',
+          )}
+        >
           {rightSlot ?? (
             <button
               type="button"

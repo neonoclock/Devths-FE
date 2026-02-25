@@ -64,10 +64,7 @@ jobs:
             ${{ github.event.issue.body }}
             ```
 
-            ---
-            *이슈 #${{ github.event.issue.number }}*
-
           # 4. 기타 스타일 옵션
           color: 0xff4d4d
-          username: GitHub Bug Bot
+          username: GitHub FE Bug Bot
           avatar_url: https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png

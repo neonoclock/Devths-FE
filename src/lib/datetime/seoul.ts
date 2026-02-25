@@ -52,6 +52,12 @@ export function toLocalDateTime(date: Date): LocalDateTimeString {
   return `${year}-${month}-${day}T${hour}:${minute}:${second}`;
 }
 
+// 백엔드에서 LocalDateTime으로 바인딩되는 쿼리 파라미터 전용 직렬화 함수입니다.
+// 커서 페이지네이션에서는 새 Date를 만들지 말고 서버가 내려준 cursor 문자열을 우선 재사용하세요.
+export function toLocalDateTimeParam(date: Date): LocalDateTimeString {
+  return date.toISOString().slice(0, 19);
+}
+
 export function parseLocalDateTime(value: string): Date {
   const match = value.match(localDateTimePattern);
   if (!match) {

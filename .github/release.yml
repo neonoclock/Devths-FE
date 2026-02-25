@@ -17,6 +17,9 @@ changelog:
         - 'fix'
         - 'bugfix'
         - 'bug'
+    - title: '👩🏻‍🎨️ UI 개선'
+      labels:
+        - 'style'
     - title: '🛠️ 인프라 및 유지보수'
       labels:
         - 'infra'

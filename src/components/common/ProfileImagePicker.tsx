@@ -10,6 +10,7 @@ const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png'] as const;
 
 type ProfileImagePickerProps = {
   previewUrl?: string | null;
+  fallbackInitial?: string;
 
   onSelect: (file: File) => void;
 
@@ -23,6 +24,7 @@ type ProfileImagePickerProps = {
 
 export default function ProfileImagePicker({
   previewUrl,
+  fallbackInitial,
   onSelect,
   onFileTooLarge,
   onInvalidType,
@@ -30,10 +32,14 @@ export default function ProfileImagePicker({
   compact = false,
 }: ProfileImagePickerProps) {
   const hasPreview = Boolean(previewUrl);
+  const trimmedFallbackInitial = fallbackInitial?.trim() ?? '';
+  const initialChar = Array.from(trimmedFallbackInitial)[0] ?? '';
+  const hasFallbackInitial = !hasPreview && initialChar.length > 0;
   const inputRef = useRef<HTMLInputElement | null>(null);
   const buttonSizeClass = size === 'sm' ? 'h-32 w-32' : 'h-44 w-44';
   const iconWrapClass = size === 'sm' ? 'h-10 w-10' : 'h-12 w-12';
   const iconClass = size === 'sm' ? 'h-5 w-5' : 'h-6 w-6';
+  const initialTextClass = size === 'sm' ? 'text-[44px]' : 'text-[56px]';
   const marginTopClass = compact ? 'mt-0' : 'mt-4';
 
   const openPicker = () => {
@@ -70,7 +76,9 @@ export default function ProfileImagePicker({
           'relative grid place-items-center overflow-hidden rounded-full shadow-sm transition',
           buttonSizeClass,
           marginTopClass,
-          hasPreview ? 'bg-zinc-900 hover:bg-zinc-800' : 'bg-zinc-200 hover:bg-zinc-300',
+          hasPreview || hasFallbackInitial
+            ? 'bg-zinc-900 hover:bg-zinc-800'
+            : 'bg-zinc-200 hover:bg-zinc-300',
         )}
         aria-label="프로필 사진 추가"
       >
@@ -85,16 +93,31 @@ export default function ProfileImagePicker({
 
         {hasPreview ? <span className="absolute inset-0 bg-black/50" /> : null}
 
-        <span className="absolute inset-0 grid place-items-center">
+        {hasFallbackInitial ? (
           <span
             className={cn(
-              'grid place-items-center rounded-full',
-              iconWrapClass,
-              hasPreview ? 'bg-black/30' : 'bg-white/60',
+              'pointer-events-none absolute inset-0 grid place-items-center font-semibold text-white',
+              initialTextClass,
             )}
           >
-            <Plus className={cn(iconClass, hasPreview ? 'text-white' : 'text-zinc-700')} />
+            {initialChar.toUpperCase()}
           </span>
+        ) : null}
+
+        <span
+          className={cn(
+            'absolute grid place-items-center rounded-full',
+            iconWrapClass,
+            hasPreview || hasFallbackInitial ? 'bg-black/30' : 'bg-white/60',
+            hasFallbackInitial ? 'right-3 bottom-3' : 'inset-0 m-auto',
+          )}
+        >
+          <Plus
+            className={cn(
+              iconClass,
+              hasPreview || hasFallbackInitial ? 'text-white' : 'text-zinc-700',
+            )}
+          />
         </span>
       </button>
 

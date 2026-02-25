@@ -6,6 +6,10 @@ import { userKeys } from '@/lib/hooks/users/queryKeys';
 export function useMeQuery() {
   return useQuery({
     queryKey: userKeys.me(),
+    staleTime: 0,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
     queryFn: async () => {
       const result = await fetchMe();
 

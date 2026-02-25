@@ -36,6 +36,23 @@ async function refreshAccessToken(): Promise<boolean> {
   }
 }
 
+export async function ensureAccessToken(): Promise<boolean> {
+  const token = getAccessToken();
+  if (token) {
+    return true;
+  }
+
+  if (!isRefreshing) {
+    isRefreshing = true;
+    refreshPromise = refreshAccessToken().finally(() => {
+      isRefreshing = false;
+      refreshPromise = null;
+    });
+  }
+
+  return refreshPromise ?? false;
+}
+
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
 type RequestOptions = {

@@ -1,3 +1,5 @@
+import type { CursorListResponse } from '@/types/pagination';
+
 export type NotificationResponse = {
   notificationId: number;
   sender: {
@@ -13,11 +15,7 @@ export type NotificationResponse = {
   isRead: boolean;
 };
 
-export type NotificationListResponse = {
-  notifications: NotificationResponse[];
-  lastId: number | null;
-  hasNext: boolean;
-};
+export type NotificationListResponse = CursorListResponse<NotificationResponse, 'notifications'>;
 
 export type UnreadCountResponse = {
   unreadCount: number;

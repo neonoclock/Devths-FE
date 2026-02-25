@@ -1,11 +1,13 @@
 'use client';
 
+import { useQuery } from '@tanstack/react-query';
 import clsx from 'clsx';
-import { Bot, Calendar, User } from 'lucide-react';
+import { Bot, Calendar, LayoutList, MessageCircle, User } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 
 import { useNavigationGuard } from '@/components/layout/NavigationGuardContext';
+import { chatKeys } from '@/lib/hooks/chat/queryKeys';
 
 type Tab = {
   label: string;
@@ -17,7 +19,9 @@ type Tab = {
 
 const TABS: Tab[] = [
   { label: '캘린더', href: '/calendar', icon: Calendar },
+  { label: '게시판', href: '/board', icon: LayoutList },
   { label: 'AI', href: '/llm', icon: Bot, highlight: true },
+  { label: '채팅', href: '/chat', icon: MessageCircle },
   { label: '프로필', href: '/profile', icon: User },
 ];
 
@@ -29,6 +33,12 @@ export default function BottomNav({ hidden = false }: BottomNavProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { isBlocked, requestNavigation } = useNavigationGuard();
+  const { data: chatRealtimeUnread = 0 } = useQuery({
+    queryKey: chatKeys.realtimeUnread(),
+    queryFn: async () => 0,
+    initialData: 0,
+    staleTime: Number.POSITIVE_INFINITY,
+  });
 
   const handleNavigate =
     (href: string) => (event: React.MouseEvent<HTMLAnchorElement, MouseEvent>) => {
@@ -45,7 +55,7 @@ export default function BottomNav({ hidden = false }: BottomNavProps) {
       )}
     >
       <div className="border-t">
-        <div className="grid h-16 grid-cols-3 px-2">
+        <div className="grid h-16 grid-cols-5 px-2">
           {TABS.map((tab) => {
             const isActive = pathname.startsWith(tab.href);
             const Icon = tab.icon;
@@ -98,7 +108,12 @@ export default function BottomNav({ hidden = false }: BottomNavProps) {
                 onClick={handleNavigate(tab.href)}
                 className={clsx(baseClass, activeClass)}
               >
-                <Icon className="h-5 w-5" />
+                <span className="relative inline-flex">
+                  <Icon className="h-5 w-5" />
+                  {tab.href === '/chat' && !isActive && chatRealtimeUnread > 0 ? (
+                    <span className="absolute -top-1.5 -right-1.5 h-2.5 w-2.5 rounded-full bg-red-500" />
+                  ) : null}
+                </span>
                 <span>{tab.label}</span>
               </Link>
             );
