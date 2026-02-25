@@ -1506,94 +1506,96 @@ export default function ChatRoomPage({ roomId, mode = 'room' }: ChatRoomPageProp
           <section className="mx-auto min-h-full w-full max-w-[430px] bg-white px-3 pt-4 pb-24">
             <h2 className="text-base font-semibold text-neutral-900">채팅방 설정</h2>
 
-            <div className="mt-4 rounded-xl border border-neutral-200 p-3">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-semibold text-neutral-900">알림 설정</p>
-                <button
-                  type="button"
-                  onClick={() => setIsAlarmOnInput((prev) => !prev)}
-                  className={clsx(
-                    'relative inline-flex h-7 w-12 items-center rounded-full transition',
-                    isAlarmOnInput ? 'bg-[#0F172A]' : 'bg-neutral-300',
-                  )}
-                  aria-label="알림 토글"
-                >
-                  <span
+            <div className="mt-4 divide-y divide-neutral-200">
+              <section className="py-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-semibold text-neutral-900">알림 설정</p>
+                  <button
+                    type="button"
+                    onClick={() => setIsAlarmOnInput((prev) => !prev)}
                     className={clsx(
-                      'inline-block h-5 w-5 rounded-full bg-white transition',
-                      isAlarmOnInput ? 'translate-x-6' : 'translate-x-1',
+                      'relative inline-flex h-7 w-12 items-center rounded-full transition',
+                      isAlarmOnInput ? 'bg-[#0F172A]' : 'bg-neutral-300',
                     )}
+                    aria-label="알림 토글"
+                  >
+                    <span
+                      className={clsx(
+                        'inline-block h-5 w-5 rounded-full bg-white transition',
+                        isAlarmOnInput ? 'translate-x-6' : 'translate-x-1',
+                      )}
+                    />
+                  </button>
+                </div>
+
+                <div className="mt-4">
+                  <p className="mb-2 text-sm font-semibold text-neutral-900">채팅방 이름</p>
+                  <input
+                    value={roomNameInput}
+                    onChange={(event) => setRoomNameInput(event.target.value)}
+                    disabled={isPrivateRoom}
+                    placeholder={
+                      isPrivateRoom
+                        ? '1:1 채팅방은 이름 수정이 불가합니다.'
+                        : '채팅방 이름을 입력하세요'
+                    }
+                    className="h-10 w-full rounded-lg border border-neutral-200 px-3 text-sm text-neutral-900 placeholder:text-neutral-400 disabled:bg-neutral-100 disabled:text-neutral-400"
                   />
-                </button>
-              </div>
+                </div>
+              </section>
 
-              <div className="mt-4">
-                <p className="mb-2 text-sm font-semibold text-neutral-900">채팅방 이름</p>
-                <input
-                  value={roomNameInput}
-                  onChange={(event) => setRoomNameInput(event.target.value)}
-                  disabled={isPrivateRoom}
-                  placeholder={
-                    isPrivateRoom
-                      ? '1:1 채팅방은 이름 수정이 불가합니다.'
-                      : '채팅방 이름을 입력하세요'
-                  }
-                  className="h-10 w-full rounded-lg border border-neutral-200 px-3 text-sm text-neutral-900 placeholder:text-neutral-400 disabled:bg-neutral-100 disabled:text-neutral-400"
-                />
-              </div>
-            </div>
+              <section className="py-4">
+                <p className="text-sm font-semibold text-neutral-900">최근 사진/파일 미리보기</p>
+                <p className="mt-1 text-xs text-neutral-500">최근 공유된 이미지 최대 4장</p>
 
-            <div className="mt-3 rounded-xl border border-neutral-200 p-3">
-              <p className="text-sm font-semibold text-neutral-900">최근 사진/파일 미리보기</p>
-              <p className="mt-1 text-xs text-neutral-500">최근 공유된 이미지 최대 4장</p>
+                {data?.recentImages?.length ? (
+                  <ul className="mt-3 grid grid-cols-4 gap-2">
+                    {data.recentImages.map((recentImage) => {
+                      const imageSrc = resolveChatAssetUrl(recentImage.s3Key);
 
-              {data?.recentImages?.length ? (
-                <ul className="mt-3 grid grid-cols-4 gap-2">
-                  {data.recentImages.map((recentImage) => {
-                    const imageSrc = resolveChatAssetUrl(recentImage.s3Key);
+                      if (!imageSrc) {
+                        return (
+                          <li
+                            key={recentImage.attachmentId}
+                            className="flex aspect-square items-center justify-center rounded-lg border border-neutral-200 bg-neutral-50 px-1 text-center text-[10px] leading-4 text-neutral-400"
+                          >
+                            미리보기 불가
+                          </li>
+                        );
+                      }
 
-                    if (!imageSrc) {
                       return (
-                        <li
-                          key={recentImage.attachmentId}
-                          className="flex aspect-square items-center justify-center rounded-lg border border-neutral-200 bg-neutral-50 px-1 text-center text-[10px] leading-4 text-neutral-400"
-                        >
-                          미리보기 불가
+                        <li key={recentImage.attachmentId}>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setImagePreview({
+                                src: imageSrc,
+                                alt: recentImage.originalName || '최근 이미지 미리보기',
+                              })
+                            }
+                            className="block w-full overflow-hidden rounded-lg border border-neutral-200"
+                            aria-label={`${recentImage.originalName || '최근 이미지'} 확대 보기`}
+                          >
+                            <Image
+                              src={imageSrc}
+                              alt={recentImage.originalName || '최근 이미지'}
+                              width={120}
+                              height={120}
+                              className="aspect-square h-auto w-full object-cover"
+                              unoptimized
+                            />
+                          </button>
                         </li>
                       );
-                    }
-
-                    return (
-                      <li key={recentImage.attachmentId}>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setImagePreview({
-                              src: imageSrc,
-                              alt: recentImage.originalName || '최근 이미지 미리보기',
-                            })
-                          }
-                          className="block w-full overflow-hidden rounded-lg border border-neutral-200"
-                          aria-label={`${recentImage.originalName || '최근 이미지'} 확대 보기`}
-                        >
-                          <Image
-                            src={imageSrc}
-                            alt={recentImage.originalName || '최근 이미지'}
-                            width={120}
-                            height={120}
-                            className="aspect-square h-auto w-full object-cover"
-                            unoptimized
-                          />
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              ) : (
-                <p className="mt-3 rounded-lg bg-neutral-50 px-3 py-3 text-xs text-neutral-500">
-                  아직 공유된 이미지가 없습니다.
-                </p>
-              )}
+                    })}
+                  </ul>
+                ) : (
+                  <p className="mt-3 px-1 py-2 text-xs text-neutral-500">
+                    아직 공유된 이미지가 없습니다.
+                  </p>
+                )}
+              </section>
             </div>
 
             <div className="mt-3 grid grid-cols-2 gap-2">
