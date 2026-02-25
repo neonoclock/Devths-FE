@@ -897,6 +897,8 @@ export default function ChatRoomPage({ roomId, mode = 'room' }: ChatRoomPageProp
                 formatDateKey(prevMessage.createdAt) !== formatDateKey(message.createdAt);
               const shouldShowLastReadDivider = index === unreadStartIndex;
               const isMine = message.sender?.userId === currentUserId;
+              const shouldShowCounterpartAvatar =
+                isPrivateRoom && !isMine && message.type !== 'SYSTEM';
               const canDeleteMessage = isMine && !message.isDeleted && message.type !== 'SYSTEM';
               const isLongText =
                 !message.isDeleted &&
@@ -947,7 +949,10 @@ export default function ChatRoomPage({ roomId, mode = 'room' }: ChatRoomPageProp
                     <div
                       className={clsx('max-w-[78%]', message.type === 'SYSTEM' ? 'max-w-full' : '')}
                     >
-                      {!isMine && message.type !== 'SYSTEM' && message.sender?.nickname ? (
+                      {!isMine &&
+                      !isPrivateRoom &&
+                      message.type !== 'SYSTEM' &&
+                      message.sender?.nickname ? (
                         <p className="mb-1 px-1 text-[11px] text-neutral-500">
                           {message.sender.nickname}
                         </p>
@@ -970,6 +975,22 @@ export default function ChatRoomPage({ roomId, mode = 'room' }: ChatRoomPageProp
                               <Trash2 className="h-4 w-4" />
                             </button>
                           ) : null
+                        ) : null}
+                        {shouldShowCounterpartAvatar ? (
+                          message.sender?.profileImage ? (
+                            <Image
+                              src={message.sender.profileImage}
+                              alt={`${message.sender.nickname ?? '상대방'} 프로필`}
+                              width={32}
+                              height={32}
+                              className="mt-1 h-8 w-8 shrink-0 rounded-full border border-neutral-200 object-cover"
+                              unoptimized
+                            />
+                          ) : (
+                            <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-neutral-200 bg-neutral-100 text-xs font-semibold text-neutral-600">
+                              {(message.sender?.nickname ?? '?').slice(0, 1)}
+                            </div>
+                          )
                         ) : null}
                         <div
                           className={clsx('flex flex-col', isMine ? 'items-end' : 'items-start')}
