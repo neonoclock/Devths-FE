@@ -21,32 +21,64 @@ function decodeBase64Url(value: string) {
   return atob(padded);
 }
 
-export function getUserIdFromAccessToken(): number | null {
-  if (typeof window === 'undefined') return null;
-  const token = getAccessToken();
-  if (!token) return null;
-
+function parseJwtPayload(token: string): Record<string, unknown> | null {
   const parts = token.split('.');
   if (parts.length < 2) return null;
 
   try {
     const payloadJson = decodeBase64Url(parts[1]);
-    const payload = JSON.parse(payloadJson) as Record<string, unknown>;
-
-    const candidates = [payload.userId, payload.id, payload.sub, payload.user_id];
-
-    for (const value of candidates) {
-      if (typeof value === 'number' && Number.isFinite(value)) return value;
-      if (typeof value === 'string' && value.trim() !== '') {
-        const parsed = Number(value);
-        if (Number.isFinite(parsed)) return parsed;
-      }
-    }
-
-    return null;
+    return JSON.parse(payloadJson) as Record<string, unknown>;
   } catch {
     return null;
   }
+}
+
+export function isAccessTokenExpired(token: string | null, skewSeconds = 30): boolean {
+  if (!token) return true;
+
+  const payload = parseJwtPayload(token);
+  if (!payload) return false;
+
+  const exp = payload.exp;
+  let expSeconds: number | null = null;
+
+  if (typeof exp === 'number' && Number.isFinite(exp)) {
+    expSeconds = exp;
+  } else if (typeof exp === 'string' && exp.trim() !== '') {
+    const parsed = Number(exp);
+    if (Number.isFinite(parsed)) {
+      expSeconds = parsed;
+    }
+  }
+
+  if (expSeconds === null) {
+    // If the token doesn't expose exp, preserve current behavior and treat it as usable.
+    return false;
+  }
+
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  return expSeconds <= nowSeconds + Math.max(0, skewSeconds);
+}
+
+export function getUserIdFromAccessToken(): number | null {
+  if (typeof window === 'undefined') return null;
+  const token = getAccessToken();
+  if (!token) return null;
+
+  const payload = parseJwtPayload(token);
+  if (!payload) return null;
+
+  const candidates = [payload.userId, payload.id, payload.sub, payload.user_id];
+
+  for (const value of candidates) {
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    if (typeof value === 'string' && value.trim() !== '') {
+      const parsed = Number(value);
+      if (Number.isFinite(parsed)) return parsed;
+    }
+  }
+
+  return null;
 }
 
 export function clearAccessToken() {
