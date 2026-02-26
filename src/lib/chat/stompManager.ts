@@ -136,8 +136,8 @@ class ChatStompManager {
   private createClient(): Client {
     const client = new Client({
       reconnectDelay: 0,
-      heartbeatIncoming: 10000,
-      heartbeatOutgoing: 10000,
+      heartbeatIncoming: 25000,
+      heartbeatOutgoing: 25000,
       webSocketFactory: () => {
         try {
           const endpoint = buildApiUrl('/ws/chat');
