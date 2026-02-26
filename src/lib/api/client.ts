@@ -122,6 +122,7 @@ export async function apiStreamRequest(
   }
 
   if (withAuth) {
+    await ensureAccessToken();
     const token = getAccessToken();
     if (token) {
       finalHeaders.Authorization = `Bearer ${token}`;
@@ -186,6 +187,7 @@ export async function apiRequest<T>(
   }
 
   if (withAuth) {
+    await ensureAccessToken();
     const token = getAccessToken();
     if (token) {
       finalHeaders.Authorization = `Bearer ${token}`;
