@@ -390,7 +390,7 @@ export default function LlmChatPage({ roomId: _roomId, numericRoomId, initialMod
         setIsSending(false);
       }
     },
-    [handleEndInterview, interviewSession, model, numericRoomId],
+    [interviewSession, model, numericRoomId],
   );
 
   const handleRetry = useCallback(
