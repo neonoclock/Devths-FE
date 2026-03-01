@@ -65,7 +65,7 @@ jobs:
             ⏳ **2단계 교차 승인 대기 중...**
 
             **승인 프로세스**:
-            1️⃣ **1차 승인** (DevOps/TechLead) → 2️⃣ **2차 승인** (TeamLead) → 🚀 **배포 실행**
+            1️⃣ **1차 승인** (DevOps) → 2️⃣ **2차 승인** (TechLead) → 🚀 **배포 실행**
 
             **승인 방법**:
             1. [워크플로우 페이지](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})로 이동
