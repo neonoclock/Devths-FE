@@ -296,6 +296,47 @@ export async function listBoardComments(
   };
 }
 
+export async function listAllBoardComments(
+  postId: number,
+  size = 50,
+): Promise<CursorPage<CommentItem>> {
+  const merged: CommentItem[] = [];
+  const seenCommentIds = new Set<number>();
+  const seenCursors = new Set<number>();
+  const MAX_PAGES = 100;
+
+  let cursor: number | null | undefined = null;
+  let pageCount = 0;
+
+  while (pageCount < MAX_PAGES) {
+    const page = await listBoardComments(postId, size, cursor);
+    pageCount += 1;
+
+    for (const item of page.items) {
+      if (seenCommentIds.has(item.commentId)) continue;
+      seenCommentIds.add(item.commentId);
+      merged.push(item);
+    }
+
+    if (!page.hasNext || page.lastId === null) {
+      break;
+    }
+
+    if (seenCursors.has(page.lastId)) {
+      break;
+    }
+
+    seenCursors.add(page.lastId);
+    cursor = page.lastId;
+  }
+
+  return {
+    items: merged,
+    lastId: null,
+    hasNext: false,
+  };
+}
+
 export async function createBoardComment(
   postId: number,
   payload: CommentCreateRequest,
