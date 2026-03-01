@@ -36,6 +36,7 @@ jobs:
     if: ${{ github.ref_name == 'main' }}
     steps:
       - name: 브랜치 검증
+        id: branch-check
         run: |
           if [ "${{ github.ref_name }}" != "main" ]; then
             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -45,6 +46,8 @@ jobs:
             exit 1
           fi
           echo "✅ 브랜치 검증 완료: ${{ github.ref_name }}"
+          REQUESTED_AT="$(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+          echo "requested_at=$REQUESTED_AT" >> $GITHUB_OUTPUT
 
       - name: Discord 승인 요청 알림
         uses: sarisia/actions-status-discord@v1
@@ -55,7 +58,7 @@ jobs:
           title: '🔔 운영 배포 승인 요청'
           description: |
             **배포 요청자**: ${{ github.actor }}
-            **요청 시각**: ${{ github.event.created_at }}
+            **요청 시각**: ${{ steps.branch-check.outputs.requested_at }}
 
             **🐳 Docker 이미지**: `${{ inputs.ecr_name }}`
             **🪣 S3 Key**: `FE/${{ github.ref_name }}/${{ inputs.ecr_name }}.zip`
@@ -110,6 +113,8 @@ jobs:
           fi
 
           echo "approver=$APPROVER" >> $GITHUB_OUTPUT
+          APPROVED_AT="$(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+          echo "approved_at=$APPROVED_AT" >> $GITHUB_OUTPUT
 
       - name: 1차 승인 완료
         run: |
@@ -127,7 +132,7 @@ jobs:
           title: '✅ 1차 승인 완료 (DevOps)'
           description: |
             **1차 승인자**: ${{ steps.first-approver.outputs.approver }}
-            **승인 시각**: ${{ github.event.head_commit.timestamp }}
+            **승인 시각**: ${{ steps.first-approver.outputs.approved_at }}
 
             **💬 배포 메모**: ${{ inputs.deployment_comment }}
             **🌍 환경**: 🚀 운영(PROD)
@@ -173,6 +178,8 @@ jobs:
           fi
 
           echo "approver=$APPROVER" >> $GITHUB_OUTPUT
+          APPROVED_AT="$(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+          echo "approved_at=$APPROVED_AT" >> $GITHUB_OUTPUT
 
       - name: 2차 승인 완료
         run: |
@@ -189,7 +196,7 @@ jobs:
           title: '✅ 2차 승인 완료 (TechLead) - 배포 시작'
           description: |
             **2차 승인자**: ${{ steps.second-approver.outputs.approver }}
-            **승인 시각**: ${{ github.event.head_commit.timestamp }}
+            **승인 시각**: ${{ steps.second-approver.outputs.approved_at }}
 
             **💬 배포 메모**: ${{ inputs.deployment_comment }}
             **🌍 환경**: 🚀 운영(PROD)
