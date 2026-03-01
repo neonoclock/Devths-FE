@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       ecr_name:
-        description: 'ECR 이미지 명 (예: 20260301_052438-06f0205)'
+        description: 'ECR 이미지 태그 (예: 20260301_052438-06f0205)'
         required: true
         type: string
       deployment_comment:
@@ -58,7 +58,7 @@ jobs:
             **요청 시각**: ${{ github.event.created_at }}
 
             **🐳 Docker 이미지**: `${{ inputs.ecr_name }}`
-            **🪣 S3 Key**: `FE/${{ github.ref_name }}/${{ inputs.ecr_name }}`
+            **🪣 S3 Key**: `FE/${{ github.ref_name }}/deploy-${{ inputs.ecr_name }}.zip`
             **💬 배포 메모**: ${{ inputs.deployment_comment }}
             **🌍 환경**: 🚀 운영(PROD)
 
@@ -215,7 +215,7 @@ jobs:
       deployment_status: ${{ steps.result.outputs.status }}
       deployment_error: ${{ steps.result.outputs.error_message }}
     env:
-      ARTIFACT_KEY: FE/${{ github.ref_name }}/${{ inputs.ecr_name }}
+      ARTIFACT_KEY: FE/${{ github.ref_name }}/deploy-${{ inputs.ecr_name }}.zip
 
     steps:
       - name: 배포 정보 확인
@@ -334,7 +334,7 @@ jobs:
             **트리거**: ${{ github.actor }}
 
             **🐳 Docker 이미지**: `${{ inputs.ecr_name }}`
-            **📦 아티팩트**: `FE/${{ github.ref_name }}/${{ inputs.ecr_name }}`
+            **📦 아티팩트**: `FE/${{ github.ref_name }}/deploy-${{ inputs.ecr_name }}.zip`
             **🪣 S3 Bucket**: `${{ env.S3_BUCKET }}`
             **🚀 배포 결과**: ${{ needs.deploy-production.outputs.deployment_status }}
             **🆔 Deployment ID**: `${{ needs.deploy-production.outputs.deployment_id }}`
@@ -363,7 +363,7 @@ jobs:
             **취소자**: ${{ github.actor }}
 
             **🐳 Docker 이미지**: `${{ inputs.ecr_name }}`
-            **📦 아티팩트**: `FE/${{ github.ref_name }}/${{ inputs.ecr_name }}`
+            **📦 아티팩트**: `FE/${{ github.ref_name }}/deploy-${{ inputs.ecr_name }}.zip`
             **💬 배포 메모**: ${{ inputs.deployment_comment }}
 
             **취소 단계**:
