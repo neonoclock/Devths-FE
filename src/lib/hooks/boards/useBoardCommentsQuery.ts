@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 
-import { listBoardComments } from '@/lib/api/boards';
+import { listAllBoardComments } from '@/lib/api/boards';
 import { boardsKeys } from '@/lib/hooks/boards/queryKeys';
 
 export function useBoardCommentsQuery(postId: number | null, size = 50) {
@@ -10,7 +10,7 @@ export function useBoardCommentsQuery(postId: number | null, size = 50) {
       if (!postId) {
         throw new Error('댓글을 불러올 수 없습니다.');
       }
-      return listBoardComments(postId, size);
+      return listAllBoardComments(postId, size);
     },
     enabled: Boolean(postId),
     refetchOnWindowFocus: true,
