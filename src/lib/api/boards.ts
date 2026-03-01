@@ -306,10 +306,9 @@ export async function listAllBoardComments(
   const MAX_PAGES = 100;
 
   let cursor: number | null | undefined = null;
-  let hasNext = true;
   let pageCount = 0;
 
-  while (hasNext && pageCount < MAX_PAGES) {
+  while (pageCount < MAX_PAGES) {
     const page = await listBoardComments(postId, size, cursor);
     pageCount += 1;
 
@@ -320,12 +319,10 @@ export async function listAllBoardComments(
     }
 
     if (!page.hasNext || page.lastId === null) {
-      hasNext = false;
       break;
     }
 
     if (seenCursors.has(page.lastId)) {
-      hasNext = false;
       break;
     }
 
