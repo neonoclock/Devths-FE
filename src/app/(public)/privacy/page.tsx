@@ -47,10 +47,13 @@ export default function PrivacyPage() {
             </p>
             <ol className="list-decimal space-y-2 pl-5">
               <li>
-                <strong>구글 로그인(OAuth)을 통해 수집하는 항목</strong>
+                <strong>구글 로그인(OAuth) 및 구글 API 연동을 통해 수집하는 항목</strong>
                 <ul className="list-disc pl-5">
                   <li>필수: 이메일 주소, 이름(닉네임), 프로필 사진 URL</li>
-                  <li>목적: 회원 식별, 계정 생성 및 로그인 유지</li>
+                  <li>선택(API 연동 시): Google Calendar 일정 정보, Google Tasks 할 일 정보</li>
+                  <li>
+                    목적: 회원 식별, 계정 생성, 로그인 유지 및 사용자 맞춤형 일정/할 일 관리 연동
+                  </li>
                 </ul>
               </li>
               <li>
@@ -64,7 +67,9 @@ export default function PrivacyPage() {
               <li>
                 <strong>수집 방법</strong>
                 <ul className="list-disc pl-5">
-                  <li>홈페이지 회원가입, 서비스 이용, 생성형 AI와의 대화</li>
+                  <li>
+                    홈페이지 회원가입, 서비스 이용, 생성형 AI와의 대화 및 Google API 연동 동의
+                  </li>
                 </ul>
               </li>
             </ol>
@@ -75,20 +80,20 @@ export default function PrivacyPage() {
               2. 개인정보의 수집 및 이용 목적
             </h2>
             <p>회사는 수집한 개인정보를 다음의 목적을 위해 활용합니다.</p>
-            <ol className="list-decimal space-y-2 pl-5">
+            <ul className="list-disc space-y-1 pl-5">
               <li>
                 <strong>회원 관리:</strong> 본인 확인, 개인 식별, 불량 회원의 부정 이용 방지, 가입
                 의사 확인
               </li>
               <li>
-                <strong>서비스 제공:</strong> AI 기반 면접 코칭, 이력서 분석, 맞춤형 채용 정보 매칭
-                및 챗봇 서비스 제공
+                <strong>서비스 제공:</strong> AI 기반 면접 코칭, 이력서 분석, 맞춤형 채용 정보 매칭,
+                챗봇 서비스 및 일정 관리 기능 제공
               </li>
               <li>
                 <strong>서비스 개선:</strong> 신규 서비스 개발, AI 모델 응답 품질 개선(비식별화 처리
                 후), 서비스 이용 통계 분석
               </li>
-            </ol>
+            </ul>
           </section>
 
           <section className="space-y-2">
@@ -135,88 +140,13 @@ export default function PrivacyPage() {
 
           <section className="space-y-2">
             <h2 className="text-base font-semibold text-neutral-900">
-              5. 개인정보의 안전성 확보 조치(보안 조치)
-            </h2>
-            <p>
-              회사는 이용자의 개인정보 및 서비스 이용 데이터(예: 계정 정보, 채팅 로그, 업로드 파일
-              등)를 안전하게 보호하기 위해 「개인정보 보호법」 등 관련 법령에 따라 다음과 같은
-              기술적·관리적 조치를 시행합니다.
-            </p>
-            <ol className="list-decimal space-y-2 pl-5">
-              <li>
-                <strong>전송 구간 암호화(HTTPS/TLS)</strong>
-                <p>
-                  이용자와 서비스 간 개인정보가 전송되는 모든 구간은 HTTPS(TLS)를 적용하여
-                  암호화합니다.
-                </p>
-              </li>
-              <li>
-                <strong>접근 통제 및 권한 관리(최소 권한 원칙)</strong>
-                <p>
-                  개인정보가 저장·처리되는 서버/데이터베이스/스토리지에 대한 접근 권한은 업무상
-                  필요한 인원에게만 최소한으로 부여하며, 권한 부여·변경·회수 절차를 통해 관리합니다.
-                </p>
-              </li>
-              <li>
-                <strong>인증 정보 및 비밀정보 보호(토큰/키 관리)</strong>
-                <p>
-                  OAuth 토큰, API Key 등 인증·비밀정보는 소스코드에 직접 포함하지 않고, 환경변수
-                  또는 비밀 관리 방식으로 안전하게 보관·관리합니다.
-                </p>
-              </li>
-              <li>
-                <strong>저장 데이터 보호 및 분리 관리</strong>
-                <p>
-                  개인정보 및 이용자 콘텐츠는 접근 제어 정책을 적용하여 보호하며, 서비스 운영에
-                  필요한 범위에서만 처리합니다. 또한 불필요한 개인정보 저장을 최소화합니다.
-                </p>
-              </li>
-              <li>
-                <strong>로그 기록 및 모니터링(이상 징후 탐지)</strong>
-                <p>
-                  서비스 안정성 및 보안 강화를 위해 접속 기록, 오류 로그, 이용 기록 등을 수집·분석할
-                  수 있으며, 수집된 로그는 목적 달성 후 지체 없이 파기합니다.
-                </p>
-              </li>
-              <li>
-                <strong>외부 위탁/연동 시 보호 조치(전송 최소화)</strong>
-                <p>
-                  AWS, OpenAI, Google Gemini 등 외부 서비스와 연동이 필요한 경우 서비스 제공에
-                  필요한 범위에서만 데이터를 전송하며, 가능한 경우 전송 데이터가 학습에 사용되지
-                  않도록 설정합니다.
-                </p>
-                <p>
-                  또한 회사는 <strong>Google Calendar/Google Tasks 접근 권한</strong>을 이용자가
-                  명시적으로 연동 기능을 사용하는 경우에 한해 서비스 기능 제공 목적(예: 일정/할 일
-                  연동)으로만 사용하며, 목적 달성에 필요한 최소 범위 내에서 처리합니다.
-                </p>
-              </li>
-              <li>
-                <strong>보관 및 파기(복구 불가능한 삭제)</strong>
-                <p>
-                  회원 탈퇴 또는 보관 기간 종료 시 개인정보는 복구 불가능한 방법으로 안전하게
-                  파기하며, 백업 데이터에 대해서도 동일한 파기 정책을 적용합니다.
-                </p>
-              </li>
-              <li>
-                <strong>취약점 대응 및 보안 업데이트</strong>
-                <p>
-                  회사는 보안 취약점 및 사고 예방을 위해 시스템 구성요소에 대한 보안 업데이트를
-                  수행하고, 이상 징후 발견 시 필요한 조치를 취합니다.
-                </p>
-              </li>
-            </ol>
-          </section>
-
-          <section className="space-y-2">
-            <h2 className="text-base font-semibold text-neutral-900">
-              6. 이용자의 권리와 행사 방법 (계정 삭제)
+              5. 이용자의 권리와 행사 방법 (계정 삭제)
             </h2>
             <p>
               사용자는 언제든지 자신의 개인정보를 조회하거나 수정할 수 있으며, 회원 탈퇴(계정
               삭제)를 요청할 수 있습니다.
             </p>
-            <ol className="list-decimal space-y-2 pl-5">
+            <ul className="list-disc space-y-1 pl-5">
               <li>
                 <strong>회원 탈퇴:</strong> 서비스 내 [설정 {'>'} 회원 탈퇴] 메뉴를 통해 즉시 탈퇴가
                 가능합니다.
@@ -227,13 +157,14 @@ export default function PrivacyPage() {
               </li>
               <li>
                 <strong>파기 절차:</strong> 계정이 삭제되면 서버에 저장된 사용자의 모든
-                개인정보(이메일, 채팅 로그, 업로드 파일)는 복구 불가능한 방법으로 파기됩니다.
+                개인정보(이메일, 채팅 로그, 업로드 파일, 연동된 API 데이터)는 복구 불가능한 방법으로
+                파기됩니다.
               </li>
-            </ol>
+            </ul>
           </section>
 
           <section className="space-y-2">
-            <h2 className="text-base font-semibold text-neutral-900">7. 개인정보 보호 책임자</h2>
+            <h2 className="text-base font-semibold text-neutral-900">6. 개인정보 보호 책임자</h2>
             <p>
               회사는 회원의 개인정보를 보호하고 관련 불만을 처리하기 위해 아래와 같이 개인정보 보호
               책임자를 지정하고 있습니다.
@@ -249,8 +180,39 @@ export default function PrivacyPage() {
           </section>
 
           <section className="space-y-2">
+            <h2 className="text-base font-semibold text-neutral-900">
+              7. 개인정보의 안전성 확보 조치 및 Google API 데이터 처리 (Data Protection)
+            </h2>
+            <p>
+              회사는 이용자의 개인정보 및 민감 정보(Google API를 통해 획득한 캘린더 및 테스크 정보
+              포함)를 안전하게 처리하기 위하여 다음과 같은 보호 조치를 취하고 있습니다.
+            </p>
+            <ul className="list-disc space-y-1 pl-5">
+              <li>
+                <strong>관리적 조치:</strong> 개인정보 취급 직원의 최소화 및 정기적인 보안 교육
+                실시, 내부 관리계획 수립 및 시행
+              </li>
+              <li>
+                <strong>기술적 조치:</strong> 개인정보 및 API 인증 토큰의 암호화 저장, 네트워크 통신
+                구간에 SSL/TLS 보안 암호화 통신 적용, 해킹이나 컴퓨터 바이러스 등에 의한 데이터
+                유출을 막기 위한 보안 시스템 운영
+              </li>
+              <li>
+                <strong>물리적 조치:</strong> 데이터가 보관된 클라우드 서버(AWS)에 대한 비인가자의
+                접근 통제
+              </li>
+              <li>
+                <strong>Google API Limited Use 정책 준수:</strong> devths 서비스가 Google API로부터
+                수신한 정보의 사용 및 다른 앱으로의 전송은 &apos;Limited Use(제한적 사용)&apos;
+                요구사항을 포함한 Google API 서비스 사용자 데이터 정책(Google API Services User Data
+                Policy)을 엄격히 준수합니다.
+              </li>
+            </ul>
+          </section>
+
+          <section className="space-y-2">
             <h2 className="text-base font-semibold text-neutral-900">8. 시행일</h2>
-            <p>본 방침은 2026년 2월 4일부터 시행됩니다.</p>
+            <p>본 방침은 2026년 3월 3일부터 시행됩니다.</p>
           </section>
         </article>
       </div>

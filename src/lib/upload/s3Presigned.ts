@@ -1,16 +1,19 @@
 export type UploadToPresignedUrlArgs = {
   presignedUrl: string;
   file: File;
+  mimeType?: string;
 };
 
 export async function uploadToPresignedUrl({
   presignedUrl,
   file,
+  mimeType,
 }: UploadToPresignedUrlArgs): Promise<void> {
+  const normalizedMimeType = mimeType?.trim() || file.type || 'application/octet-stream';
   const res = await fetch(presignedUrl, {
     method: 'PUT',
     headers: {
-      'Content-Type': file.type,
+      'Content-Type': normalizedMimeType,
     },
     body: file,
   });

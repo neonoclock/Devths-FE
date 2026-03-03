@@ -9,6 +9,7 @@ export type UploadFileOptions = {
   refType: FileRefType;
   refId?: number | null;
   sortOrder?: number;
+  mimeType?: string;
 };
 
 export type UploadFileResult = {
@@ -17,11 +18,12 @@ export type UploadFileResult = {
 };
 
 export async function uploadFile(options: UploadFileOptions): Promise<UploadFileResult> {
-  const { file, category, refType, refId, sortOrder = 1 } = options;
+  const { file, category, refType, refId, sortOrder = 1, mimeType } = options;
+  const normalizedMimeType = mimeType?.trim() || file.type || 'application/octet-stream';
 
   const presignedResult = await postPresigned({
     fileName: file.name,
-    mimeType: file.type,
+    mimeType: normalizedMimeType,
   });
 
   if (!presignedResult.ok || !presignedResult.json) {
@@ -34,12 +36,12 @@ export async function uploadFile(options: UploadFileOptions): Promise<UploadFile
   }>;
   const { presignedUrl, s3Key } = presignedJson.data;
 
-  await uploadToPresignedUrl({ presignedUrl, file });
+  await uploadToPresignedUrl({ presignedUrl, file, mimeType: normalizedMimeType });
 
   const metaResult = await postFileMeta({
     originalName: file.name,
     s3Key,
-    mimeType: file.type,
+    mimeType: normalizedMimeType,
     ...(category !== undefined ? { category } : {}),
     fileSize: file.size,
     refType,

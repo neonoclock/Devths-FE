@@ -28,6 +28,7 @@ import {
 import ConfirmModal from '@/components/common/ConfirmModal';
 import { useAppFrame } from '@/components/layout/AppFrameContext';
 import { useHeader } from '@/components/layout/HeaderContext';
+import { fetchChatMessages } from '@/lib/api/chatMessages';
 import { getUserIdFromAccessToken } from '@/lib/auth/token';
 import { applyRealtimeRoomMessage } from '@/lib/chat/realtimeMessageCache';
 import { applyRealtimeRoomNotification } from '@/lib/chat/realtimeRoomCache';
@@ -61,7 +62,32 @@ const MESSAGE_SEND_DESTINATION = '/app/chat/message';
 const MAX_IMAGE_ATTACHMENTS_PER_PICK = 9;
 const MAX_ATTACHMENT_FILE_SIZE_BYTES = 5 * 1024 * 1024;
 const ALLOWED_IMAGE_MIME_TYPES = new Set(['image/jpeg', 'image/jpg', 'image/png', 'image/webp']);
-const ALLOWED_FILE_MIME_TYPES = new Set(['application/pdf']);
+const ALLOWED_FILE_MIME_TYPES = new Set([
+  'application/pdf',
+  'application/x-pdf',
+  'application/acrobat',
+  'applications/vnd.pdf',
+  'text/pdf',
+]);
+const PDF_FILE_EXTENSION_REGEX = /\.pdf$/i;
+
+function isPdfFile(file: File): boolean {
+  const mimeType = file.type.trim().toLowerCase();
+  if (mimeType && ALLOWED_FILE_MIME_TYPES.has(mimeType)) {
+    return true;
+  }
+
+  return PDF_FILE_EXTENSION_REGEX.test(file.name);
+}
+
+function resolveAttachmentMimeType(file: File, isImageAttachment: boolean): string {
+  if (isImageAttachment) {
+    return file.type || 'application/octet-stream';
+  }
+
+  // Some environments return empty/variant MIME for PDF. Normalize to application/pdf.
+  return isPdfFile(file) ? 'application/pdf' : file.type || 'application/octet-stream';
+}
 
 function resolveChatAssetUrl(s3KeyOrUrl: string | null): string | null {
   if (!s3KeyOrUrl) {
@@ -210,6 +236,7 @@ export default function ChatRoomPage({ roomId, mode = 'room' }: ChatRoomPageProp
   const prevScrollHeightRef = useRef(0);
   const hasPatchedOnEntryRef = useRef(false);
   const lastPatchedMsgIdRef = useRef<number | null>(null);
+  const attachmentEchoFallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const patchLastReadMutation = usePatchLastReadMutation(roomId ?? 0);
   const deleteMessageMutation = useDeleteMessageMutation(roomId ?? 0);
   const putRoomSettingsMutation = usePutRoomSettingsMutation(roomId ?? 0);
@@ -448,10 +475,7 @@ export default function ChatRoomPage({ roomId, mode = 'room' }: ChatRoomPageProp
         }
       }
 
-      if (
-        nonImageFiles.length === 1 &&
-        !ALLOWED_FILE_MIME_TYPES.has(nonImageFiles[0]?.type ?? '')
-      ) {
+      if (nonImageFiles.length === 1 && !isPdfFile(nonImageFiles[0]!)) {
         openAttachmentValidationModal('파일 첨부는 PDF 형식만 지원합니다.');
         return;
       }
@@ -460,14 +484,17 @@ export default function ChatRoomPage({ roomId, mode = 'room' }: ChatRoomPageProp
 
       try {
         for (const file of selectedFiles) {
+          const isImageAttachment = ALLOWED_IMAGE_MIME_TYPES.has(file.type);
+          const normalizedMimeType = resolveAttachmentMimeType(file, isImageAttachment);
+
           const uploaded = await uploadFile({
             file,
             category: 'AI_CHAT_ATTACHMENT',
             refType: 'CHATROOM',
             refId: roomId,
+            mimeType: normalizedMimeType,
           });
 
-          const isImageAttachment = ALLOWED_IMAGE_MIME_TYPES.has(file.type);
           const payload: SendChatMessagePayload = isImageAttachment
             ? {
                 roomId,
@@ -488,6 +515,28 @@ export default function ChatRoomPage({ roomId, mode = 'room' }: ChatRoomPageProp
             toast('첨부 메시지 전송에 실패했습니다. 잠시 후 다시 시도해 주세요.');
             return;
           }
+
+          // STOMP echo fallback: 백엔드가 FILE/IMAGE 메시지를 브로드캐스트하지 않는 경우
+          // 2초 후 REST API로 최신 메시지를 가져와 캐시에 병합합니다.
+          if (attachmentEchoFallbackTimerRef.current !== null) {
+            clearTimeout(attachmentEchoFallbackTimerRef.current);
+          }
+          const fallbackRoomId = roomId;
+          attachmentEchoFallbackTimerRef.current = setTimeout(() => {
+            attachmentEchoFallbackTimerRef.current = null;
+            void fetchChatMessages(fallbackRoomId, { size: MESSAGE_PAGE_SIZE }).then((result) => {
+              if (!result.ok || !result.json || !('data' in result.json) || !result.json.data) {
+                return;
+              }
+              for (const msg of result.json.data.messages) {
+                applyRealtimeRoomMessage(queryClient, {
+                  roomId: fallbackRoomId,
+                  size: MESSAGE_PAGE_SIZE,
+                  message: msg,
+                });
+              }
+            });
+          }, 2000);
         }
       } catch (error) {
         const err = error as Error;
@@ -496,7 +545,7 @@ export default function ChatRoomPage({ roomId, mode = 'room' }: ChatRoomPageProp
         setIsAttachmentUploading(false);
       }
     },
-    [isAttachmentUploading, openAttachmentValidationModal, roomId],
+    [isAttachmentUploading, openAttachmentValidationModal, queryClient, roomId],
   );
 
   useChatSubscriptions({
@@ -669,6 +718,10 @@ export default function ChatRoomPage({ roomId, mode = 'room' }: ChatRoomPageProp
   ]);
 
   useEffect(() => {
+    if (attachmentEchoFallbackTimerRef.current !== null) {
+      clearTimeout(attachmentEchoFallbackTimerRef.current);
+      attachmentEchoFallbackTimerRef.current = null;
+    }
     hasInitialScrollRef.current = false;
     hasNoUnreadInitialBottomResyncedRef.current = false;
     isLoadingOlderRef.current = false;
