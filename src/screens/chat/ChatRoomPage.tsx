@@ -177,7 +177,7 @@ function resolveMessageContent(message: ChatMessageResponse): string {
     return '[이미지]';
   }
 
-  if (message.type === 'FILE') {
+  if (message.type === 'FILE' || message.type === 'PDF') {
     return '[파일]';
   }
 
@@ -504,8 +504,7 @@ export default function ChatRoomPage({ roomId, mode = 'room' }: ChatRoomPageProp
               }
             : {
                 roomId,
-                type: 'FILE',
-                // Backend FILE 저장 로직은 content 필드를 사용합니다.
+                type: 'PDF',
                 content: uploaded.s3Key,
                 s3Key: uploaded.s3Key,
               };
@@ -1008,7 +1007,7 @@ export default function ChatRoomPage({ roomId, mode = 'room' }: ChatRoomPageProp
                   ? resolveChatAssetUrl(message.s3Key)
                   : null;
               const fileUrl =
-                !message.isDeleted && message.type === 'FILE'
+                !message.isDeleted && (message.type === 'FILE' || message.type === 'PDF')
                   ? resolveChatAssetUrl(message.s3Key ?? message.content)
                   : null;
 
@@ -1131,7 +1130,8 @@ export default function ChatRoomPage({ roomId, mode = 'room' }: ChatRoomPageProp
                                 </div>
                               )}
                             </button>
-                          ) : message.type === 'FILE' && !message.isDeleted ? (
+                          ) : (message.type === 'FILE' || message.type === 'PDF') &&
+                            !message.isDeleted ? (
                             <button
                               type="button"
                               onClick={() => {
