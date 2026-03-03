@@ -1,6 +1,6 @@
 export type ChatRoomType = 'PRIVATE' | 'GROUP';
 
-export type ChatMessageType = 'TEXT' | 'IMAGE' | 'FILE' | 'SYSTEM';
+export type ChatMessageType = 'TEXT' | 'IMAGE' | 'FILE' | 'PDF' | 'SYSTEM';
 
 export type ChatroomsCursor = string;
 // Messages cursor is handled as `lastId`.
