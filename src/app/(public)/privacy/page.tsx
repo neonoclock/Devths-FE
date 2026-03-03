@@ -67,7 +67,9 @@ export default function PrivacyPage() {
               <li>
                 <strong>수집 방법</strong>
                 <ul className="list-disc pl-5">
-                  <li>홈페이지 회원가입, 서비스 이용, 생성형 AI와의 대화 및 Google API 연동 동의</li>
+                  <li>
+                    홈페이지 회원가입, 서비스 이용, 생성형 AI와의 대화 및 Google API 연동 동의
+                  </li>
                 </ul>
               </li>
             </ol>
@@ -187,8 +189,8 @@ export default function PrivacyPage() {
             </p>
             <ul className="list-disc space-y-1 pl-5">
               <li>
-                <strong>관리적 조치:</strong> 개인정보 취급 직원의 최소화 및 정기적인 보안 교육 실시,
-                내부 관리계획 수립 및 시행
+                <strong>관리적 조치:</strong> 개인정보 취급 직원의 최소화 및 정기적인 보안 교육
+                실시, 내부 관리계획 수립 및 시행
               </li>
               <li>
                 <strong>기술적 조치:</strong> 개인정보 및 API 인증 토큰의 암호화 저장, 네트워크 통신
