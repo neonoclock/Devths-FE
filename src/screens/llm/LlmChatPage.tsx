@@ -167,7 +167,7 @@ export default function LlmChatPage({ roomId: _roomId, numericRoomId, initialMod
               {
                 id: systemId,
                 role: 'SYSTEM' as const,
-                text: '면접이 종료되었습니다. 답변 평가를 시작합니다.',
+                text: '면접이 종료되었습니다. 평가를 시작합니다.',
               },
             ]),
         {
