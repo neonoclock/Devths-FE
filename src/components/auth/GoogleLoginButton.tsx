@@ -60,20 +60,19 @@ export default function GoogleLoginButton({
       onClick={handleClick}
       className={[
         fullWidth ? 'w-full' : 'w-auto',
-        'max-w-sm',
-        'rounded-xl border border-transparent',
-        'px-4 py-3',
-        'text-sm font-semibold',
-        'bg-[#05C075] text-white hover:bg-[#04A865] active:bg-[#039F62]',
+        'flex items-center justify-center',
         'disabled:cursor-not-allowed disabled:opacity-60',
         className ?? '',
       ].join(' ')}
       {...props}
     >
-      <span className="flex items-center justify-center gap-2">
-        <Image src="/icons/google.png" alt="Google" width={18} height={18} priority />
-        <span>Google 계정으로 계속하기</span>
-      </span>
+      <Image
+        src="/icons/googlelogin.png"
+        alt="Google 계정으로 계속하기"
+        width={189}
+        height={40}
+        priority
+      />
     </button>
   );
 }
