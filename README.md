@@ -138,6 +138,11 @@ AI 기반 이력서 분석, 모의 면접, 커뮤니티, 일정 관리 기능을
 ---
 
 ### 🔥 PWA
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/f25e75ce-b354-4525-9906-57d8226a8043" width="49%" />
+  <img src="https://github.com/user-attachments/assets/dca52dc9-6022-43ba-89fc-ce47db2af36e" width="49%" />
+</p>
+
 
   > 모바일 홈 화면에 추가하면 네이티브 앱처럼 사용할 수 있어요.                                              
                                                                                                            
